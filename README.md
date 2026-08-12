@@ -1,4 +1,4 @@
-# Pocket Trustee
+# PocketTrustee
 次世代All-in-one数字钥匙
 
 ## 免责声明
@@ -11,7 +11,7 @@
 
 ## 硬件设计
 硬件设计发布在[OSHW Hub](https://oshwhub.com/reblock/pocket_trustee)上  
-ZW0919指纹模块的支持已被彻底移除，今后暂没有支持计划，拆掉这个模块可以帮助降低漏电流  
+ZW0919指纹模块的支持已被彻底移除，今后没有支持计划，拆掉这个模块可以帮助降低漏电流  
 
 ## 编译，下载，初始化说明
 1. 下载 [STM32 CubeCLT](https://www.st.com/en/development-tools/stm32cubeclt.html) 工具链  
@@ -24,19 +24,7 @@ ZW0919指纹模块的支持已被彻底移除，今后暂没有支持计划，�
 3. 使用 [STM32 CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html) 工具将PocketTrustee.elf 烧录到芯片上   
 4. 连接设备和电脑，应当能在设备管理器里看到新的串口设备   
 5. 使用python运行`tools/PocketTrusteeCLI/main.py`，并执行命令`connect -a --init`  
-6. 根据提示操作即可；更多关于PocketTrusteeCLI工具的说明请见后续章节  
+6. 根据提示操作即可；更多关于PocketTrusteeCLI工具的说明请见后续章节
 
-## TODO
-目前PocketTrsutee正在进行大规模代码重构  
-- [x] 迁移bsp_flash -> driver_w25q16 & ll_w25q16
-- [x] 迁移bsp_epaper -> driver_display & ll_epaper
-- [ ] 迁移bsp_pn532 -> driver_pn532 & ll_pn532
-- [ ] 使用现代特性重写IDCard
-- [ ] 迁移bsp_rfid -> driver_rfid & ll_rfid
-- [ ] 迁移bsp_core -> ll_startup
-- [ ] 对driver和ll的解耦进行检查
-- [ ] 迁移gui -> guiv2
-
-## PocketTrusteeCLI
-专为PocketTrustee设计的CLI工具，可以用于添加/删除/编辑 密码，ID卡，TOTP，以及进行数据备份和还原等  
-请见[PocketTrusteeCLI](tools/PocketTrusteeCLI/README.md)
+## PocketTrustee Control
+PocketTrustee Control是一组统一的工具合集,为未来所有的PocketTrustee型号提供管理支持

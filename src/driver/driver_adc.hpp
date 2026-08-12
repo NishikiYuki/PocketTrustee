@@ -1,21 +1,36 @@
 #ifndef POCKETTRUSTEE_DRIVER_ADC_HPP
 #define POCKETTRUSTEE_DRIVER_ADC_HPP
 
-#include "main.h"
+#include "app_ptt.hpp"
 
-class CoreADC
-{
+class IAdcLowLayer {
 public:
-    struct LL_ADC_Data {
+    virtual ~IAdcLowLayer() = default;
+
+    struct AdcAquireData {
         uint32_t vbat, lf_rssi, vref;
     };
-    
-    static float GetBatteryVoltage();
-    static float GetRSSI();
+
+    virtual void ll_init() = 0;
+    virtual void power_down() = 0;
+    virtual void scan(AdcAquireData * buffer) = 0;
 };
 
-int ll_adc_init();
-int ll_adc_powerdown();
-int ll_adc_get_value(CoreADC::LL_ADC_Data * p_value, CancellationToken * token);
+class DeviceAdc final : public PocketTrustee::IDevice {
+public:
+    void Initialize() override;
+
+    std::string_view Name() const noexcept override {
+        return "adc";
+    }
+
+    DeviceAdc(IAdcLowLayer& ll) : ll_{ll} {}
+
+    float GetBatteryVoltage();
+    float GetRSSI();
+
+private:
+    IAdcLowLayer& ll_;
+};
 
 #endif //POCKETTRUSTEE_DRIVER_ADC_HPP

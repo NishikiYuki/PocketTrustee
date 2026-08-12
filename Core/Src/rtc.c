@@ -48,6 +48,10 @@ void MX_RTC_Init(void)
   /* Peripheral clock enable */
   LL_RCC_EnableRTC();
 
+  /* RTC interrupt Init */
+  NVIC_SetPriority(RTC_WKUP_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),5, 0));
+  NVIC_EnableIRQ(RTC_WKUP_IRQn);
+
   /* USER CODE BEGIN RTC_Init 1 */
 
   /* USER CODE END RTC_Init 1 */
@@ -58,6 +62,9 @@ void MX_RTC_Init(void)
   RTC_InitStruct.AsynchPrescaler = 127;
   RTC_InitStruct.SynchPrescaler = 255;
   LL_RTC_Init(RTC, &RTC_InitStruct);
+
+  /** Initialize RTC and set the Time and Date
+  */
   /* USER CODE BEGIN RTC_Init 2 */
   /* USER CODE END RTC_Init 2 */
 

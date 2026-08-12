@@ -1,5 +1,5 @@
-#ifndef POCKETTRUSTEE_COMMON_CRC_HPP
-#define POCKETTRUSTEE_COMMON_CRC_HPP
+#ifndef POCKETTRUSTEE_APP_CRC_HPP
+#define POCKETTRUSTEE_APP_CRC_HPP
 
 #include <cstdint>
 
@@ -26,4 +26,4 @@ private:
     uint32_t value_ = 0xFFFFFFFF;
 };
 
-#endif //POCKETTRUSTEE_COMMON_CRC_HPP
+#endif //POCKETTRUSTEE_APP_CRC_HPP

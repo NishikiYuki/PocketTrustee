@@ -1,7 +1,7 @@
-#ifndef SIMPLE_BUFFER_H
-#define SIMPLE_BUFFER_H
+#ifndef POCKETTRUSTEE_APP_SIMPLE_BUFFER_HPP
+#define POCKETTRUSTEE_APP_SIMPLE_BUFFER_HPP
 
-#include "main.h"
+#include <cstdint>
 #include <cstring>
 
 class StaticRingBuffer
@@ -15,18 +15,18 @@ public:
 
         uint16_t nwrite = nfree >= size ? size : nfree;
 
-        uint16_t avaliable = _size - _write_ptr;
+        uint16_t available = _size - _write_ptr;
 
-        if (avaliable >= nwrite)
+        if (available >= nwrite)
         {
             memcpy(_buffer + _write_ptr, data, nwrite);
-            _write_ptr += nwrite;
+            _write_ptr = (_write_ptr + nwrite) % _size;
         }
         else
         {
-            memcpy(_buffer + _write_ptr, data, avaliable);
-            memcpy(_buffer, data + avaliable, nwrite - avaliable);
-            _write_ptr = nwrite - avaliable;
+            memcpy(_buffer + _write_ptr, data, available);
+            memcpy(_buffer, data + available, nwrite - available);
+            _write_ptr = (nwrite - available) % _size;
         }
         end_of_file = eof;
         return nwrite;
@@ -38,20 +38,19 @@ public:
 
         uint16_t nread = used >= size ? size : used;
 
-        uint16_t avaliable = _size - _read_ptr;
+        uint16_t available = _size - _read_ptr;
 
-        if (avaliable >= nread)
+        if (available >= nread)
         {
             memcpy(dst, _buffer + _read_ptr, nread);
-            _read_ptr += nread;
+            _read_ptr = (_read_ptr + nread) % _size;
         }
         else
         {
-            memcpy(dst, _buffer + _read_ptr, avaliable);
-            memcpy(dst + avaliable, _buffer, nread - avaliable);
-            _read_ptr = nread - avaliable;
+            memcpy(dst, _buffer + _read_ptr, available);
+            memcpy(dst + available, _buffer, nread - available);
+            _read_ptr = (nread - available) % _size;
         }
-        end_of_file = true;
         return nread;
     }
 
@@ -72,14 +71,13 @@ public:
 
     uint16_t get_used() const
     {
-        int len = _write_ptr - _read_ptr;
-        return len >= 0 ? len : (_size + len);
+        return (_write_ptr >= _read_ptr) ? (_write_ptr - _read_ptr)
+                                         : (_size - _read_ptr + _write_ptr);
     }
 
     uint16_t get_free() const
     {
-        int len = _write_ptr - _read_ptr;
-        return len >= 0 ? _size - 1 - len : -1 - len;
+        return _size - 1 - get_used();
     }
 
     void clear()
@@ -93,7 +91,7 @@ private:
     uint16_t _read_ptr = 0;
     uint16_t _write_ptr = 0;
     uint8_t * _buffer;
-    volatile bool end_of_file = true;
+    volatile bool end_of_file = false;
 };
 
 class StaticPollBuffer
@@ -122,7 +120,7 @@ public:
 
     void read(uint8_t* dst, uint16_t size)
     {
-        if (size == 0) size = _size;
+        if (size == 0 || size > _available) size = _available;
         memcpy(dst, _buffer, size);
         _available = 0;
     }

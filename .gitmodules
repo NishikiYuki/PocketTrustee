@@ -1,0 +1,4 @@
+[submodule "Lib/mbedtls"]
+	path = Lib/mbedtls
+	url = git@github.com:Mbed-TLS/mbedtls.git
+	branch = mbedtls-4.2.0

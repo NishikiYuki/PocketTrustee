@@ -1,18 +1,21 @@
 #include "driver_adc.hpp"
-#include "adc.h"
 
-float CoreADC::GetBatteryVoltage() {
-    LL_ADC_Data data {};
-    ll_adc_init();
-    ll_adc_get_value(&data, nullptr);
-    ll_adc_powerdown();
-    return static_cast<float>(data.vbat) / static_cast<float>(data.vref) * 2.4f;
+void DeviceAdc::Initialize() {
+    ll_.power_down();
 }
 
-float CoreADC::GetRSSI() {
-    LL_ADC_Data data {};
-    ll_adc_init();
-    ll_adc_get_value(&data, nullptr);
-    ll_adc_powerdown();
-    return static_cast<float>(data.lf_rssi) / static_cast<float>(data.vref) * 1.2f;
+float DeviceAdc::GetBatteryVoltage() {
+    IAdcLowLayer::AdcAquireData aquire {};
+    ll_.ll_init();
+    ll_.scan(&aquire);
+    ll_.power_down();
+    return static_cast<float>(aquire.vbat) / static_cast<float>(aquire.vref) * 2.4f;
+}
+
+float DeviceAdc::GetRSSI() {
+    IAdcLowLayer::AdcAquireData aquire {};
+    ll_.ll_init();
+    ll_.scan(&aquire);
+    ll_.power_down();
+    return static_cast<float>(aquire.lf_rssi) / static_cast<float>(aquire.vref) * 1.2f;
 }

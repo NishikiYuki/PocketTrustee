@@ -20,7 +20,6 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "adc.h"
-#include "aes.h"
 #include "comp.h"
 #include "crc.h"
 #include "dac.h"
@@ -63,12 +62,6 @@
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-int __io_putchar(int ch) {
-  LL_USART_TransmitData8(USART1, ch);
-  while (!LL_USART_IsActiveFlag_TC(USART1)) {}
-  LL_USART_ClearFlag_TC(USART1);
-  return 0;
-}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -107,7 +100,6 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
-  MX_AES_Init();
   MX_COMP1_Init();
   MX_DAC1_Init();
   MX_RNG_Init();
@@ -119,11 +111,21 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM1_Init();
   MX_LPTIM2_Init();
-  MX_TIM16_Init();
   MX_LPTIM1_Init();
   MX_CRC_Init();
   /* USER CODE BEGIN 2 */
+
+  __attribute__((section("._user_heap2_region"))) static uint8_t _userHeapRegion1[ SRAM2_SIZE ];
+  static uint8_t _userHeapRegion2[ 0x6000 ];
+  static const HeapRegion_t xHeapRegions[] =
+  {
+    {_userHeapRegion1, SRAM2_SIZE},
+    {_userHeapRegion2, sizeof(_userHeapRegion2)},
+    { NULL, 0 }
+  };
+  vPortDefineHeapRegions(xHeapRegions);
   // MPU_Config();
+
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */

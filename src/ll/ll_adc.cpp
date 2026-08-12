@@ -1,27 +1,29 @@
-#include "driver_adc.hpp"
+#include "ll_adc.hpp"
 #include "adc.h"
 
 namespace {
     uint16_t adc_buffer[3];
 }
 
-int ll_adc_init() {
+AdcLowLayer& AdcLowLayer::getInstance() {
+    static AdcLowLayer instance;
+    return instance;
+}
+
+void AdcLowLayer::ll_init() {
     MX_ADC1_Init();
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-    return 0;
 }
 
-int ll_adc_powerdown() {
+void AdcLowLayer::power_down() {
     HAL_ADC_Stop_DMA(&hadc1);
     HAL_ADCEx_EnterADCDeepPowerDownMode(&hadc1);
-    return 0;
 }
 
-int ll_adc_get_value(CoreADC::LL_ADC_Data * p_value, CancellationToken * token) {
+void AdcLowLayer::scan(AdcAquireData* buffer) {
     HAL_ADC_Start_DMA(&hadc1, reinterpret_cast<uint32_t*>(adc_buffer), 3);
     HAL_ADC_PollForConversion(&hadc1, 1000);
-    p_value->vbat = adc_buffer[0];
-    p_value->lf_rssi = adc_buffer[1];
-    p_value->vref = adc_buffer[2];
-    return 0;
+    buffer->vbat = adc_buffer[0];
+    buffer->lf_rssi = adc_buffer[1];
+    buffer->vref = adc_buffer[2];
 }

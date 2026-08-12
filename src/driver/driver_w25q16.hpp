@@ -1,7 +1,6 @@
 #ifndef POCKETTRUSTEE_DRIVER_W25Q16_HPP
 #define POCKETTRUSTEE_DRIVER_W25Q16_HPP
 
-#include "main.h"
 #include "lfs.h"
 
 class ExternalW25Q16 {

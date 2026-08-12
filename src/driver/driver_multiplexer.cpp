@@ -1,16 +1,10 @@
 #include "driver_multiplexer.hpp"
 
-namespace {
-    CoreMultiplexer::MultiplexerChannel _channel = CoreMultiplexer::MUX_NONE;
+DeviceMultiplexer::MultiplexerChannel DeviceMultiplexer::Get() {
+    return channel_;
 }
 
-CoreMultiplexer::MultiplexerChannel CoreMultiplexer::Get() {
-    return _channel;
-}
-
-void CoreMultiplexer::Set(MultiplexerChannel channel) {
-    DEBUG_INFO("Multiplexer at %d", channel);
-
-    _channel = channel;
-    ll_multiplexer_set(channel);
+void DeviceMultiplexer::Set(MultiplexerChannel channel) {
+    channel_ = channel;
+    ll_.set_channel(channel_);
 }

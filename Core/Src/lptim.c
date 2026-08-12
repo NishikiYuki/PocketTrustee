@@ -109,7 +109,7 @@ void HAL_LPTIM_MspInit(LPTIM_HandleTypeDef* lptimHandle)
     __HAL_RCC_LPTIM1_CLK_ENABLE();
 
     /* LPTIM1 interrupt Init */
-    HAL_NVIC_SetPriority(LPTIM1_IRQn, 5, 0);
+    HAL_NVIC_SetPriority(LPTIM1_IRQn, 7, 0);
     HAL_NVIC_EnableIRQ(LPTIM1_IRQn);
   /* USER CODE BEGIN LPTIM1_MspInit 1 */
 
@@ -132,6 +132,10 @@ void HAL_LPTIM_MspInit(LPTIM_HandleTypeDef* lptimHandle)
 
     /* LPTIM2 clock enable */
     __HAL_RCC_LPTIM2_CLK_ENABLE();
+
+    /* LPTIM2 interrupt Init */
+    HAL_NVIC_SetPriority(LPTIM2_IRQn, 9, 0);
+    HAL_NVIC_EnableIRQ(LPTIM2_IRQn);
   /* USER CODE BEGIN LPTIM2_MspInit 1 */
 
   /* USER CODE END LPTIM2_MspInit 1 */
@@ -162,6 +166,9 @@ void HAL_LPTIM_MspDeInit(LPTIM_HandleTypeDef* lptimHandle)
   /* USER CODE END LPTIM2_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_LPTIM2_CLK_DISABLE();
+
+    /* LPTIM2 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(LPTIM2_IRQn);
   /* USER CODE BEGIN LPTIM2_MspDeInit 1 */
 
   /* USER CODE END LPTIM2_MspDeInit 1 */
