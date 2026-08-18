@@ -1,7 +1,12 @@
 [submodule "Lib/mbedtls"]
 	path = Lib/mbedtls
-	url = git@github.com:Mbed-TLS/mbedtls.git
-	branch = mbedtls-4.2.0
+	url = https://github.com/Mbed-TLS/mbedtls.git
 [submodule "Lib/tinycbor"]
 	path = Lib/tinycbor
-	url = git@github.com:intel/tinycbor.git
+	url = https://github.com/intel/tinycbor.git
+[submodule "Lib/littlefs"]
+	path = Lib/littlefs
+	url = https://github.com/littlefs-project/littlefs.git
+[submodule "Lib/cherryusb"]
+	path = Lib/cherryusb
+	url = https://github.com/cherry-embedded/CherryUSB.git
