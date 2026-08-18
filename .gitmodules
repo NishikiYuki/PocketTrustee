@@ -2,3 +2,6 @@
 	path = Lib/mbedtls
 	url = git@github.com:Mbed-TLS/mbedtls.git
 	branch = mbedtls-4.2.0
+[submodule "Lib/tinycbor"]
+	path = Lib/tinycbor
+	url = git@github.com:intel/tinycbor.git
