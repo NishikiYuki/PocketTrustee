@@ -1,10 +1,8 @@
-#include "ll_rfid.hpp"
-#include "driver_w25q16.hpp"
-#include "guiv2.hpp"
 #include "main.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include <bits/this_thread_sleep.h>
+#include "app_ptt.hpp"
+#include "ll_epaper.hpp"
 
 extern "C" {
 void StartDefaultTask(void const* argument);
@@ -17,9 +15,16 @@ void HAL_Delay(uint32_t Delay) {
 }
 
 void StartDefaultTask(void const* argument) {
-    for (;;) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+    DEBUG_INFO("RTOS Entrance");
+    PocketTrustee::AppComponents components;
+    {
+        components.Gui = std::make_unique<guiv2::Gui>(DeviceEpaper::getInstance());
+        DEBUG_INFO("Register Gui");
     }
+    for (;;) {
+        HAL_Delay(1000);
+    }
+    vTaskDelete(nullptr);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {

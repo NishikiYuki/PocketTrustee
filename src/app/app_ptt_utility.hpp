@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <memory>
 
 namespace PocketTrustee {
     enum class TimeZoneOffset : int32_t {
@@ -20,6 +21,12 @@ namespace PocketTrustee {
         TimeZoneOffset zone = TimeZoneOffset::None;
         uint64_t ToUnixTime() const;
         static DateTime FromUnixTime(uint64_t unix_time, TimeZoneOffset offset = TimeZoneOffset::None);
+    };
+
+    struct Exception {
+        const char* msg;
+        int err;
+        int line;
     };
 }
 

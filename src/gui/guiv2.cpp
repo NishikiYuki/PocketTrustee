@@ -375,7 +375,7 @@ void Gui::PostEvent(const UiEvent& event) {
     xTaskNotifyFromISR(mainTaskHandle_, 0, eIncrement, nullptr);
 }
 
-void Gui::Start() {
+void Gui::Start(void*) {
     mainTaskHandle_ = xTaskGetCurrentTaskHandle();
     for (;;) {
         xTaskNotifyStateClear(mainTaskHandle_);

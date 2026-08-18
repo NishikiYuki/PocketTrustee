@@ -1,4 +1,4 @@
-#include "../app/common_crc.hpp"
+#include "common_crc.hpp"
 #include "main.h"
 
 // Hardware implement on STM32

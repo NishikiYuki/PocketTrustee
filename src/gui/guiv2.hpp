@@ -296,7 +296,7 @@ namespace guiv2 {
         /**
          * @brief Entrance of gui task
          */
-        void Start();
+        void Start(void*);
 
         void Invalidate(bool mark_as_strong=false);
         Window* FocusedWindow();
