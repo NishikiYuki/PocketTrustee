@@ -69,7 +69,7 @@ extern DMA_HandleTypeDef hdma_usart3_tx;
 extern UART_HandleTypeDef huart3;
 extern PCD_HandleTypeDef hpcd_USB_FS;
 /* USER CODE BEGIN EV */
-extern void USB_Event_Callback();
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -382,13 +382,11 @@ void LPTIM2_IRQHandler(void)
 void USB_IRQHandler(void)
 {
   /* USER CODE BEGIN USB_IRQn 0 */
-  USB_Event_Callback();
-  return;
-  //NOLINTBEGIN
+
   /* USER CODE END USB_IRQn 0 */
   HAL_PCD_IRQHandler(&hpcd_USB_FS);
   /* USER CODE BEGIN USB_IRQn 1 */
-  //NOLINTEND
+
   /* USER CODE END USB_IRQn 1 */
 }
 

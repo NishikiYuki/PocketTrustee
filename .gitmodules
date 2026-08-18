@@ -1,9 +1,6 @@
 [submodule "Lib/mbedtls"]
 	path = Lib/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
-[submodule "Lib/tinycbor"]
-	path = Lib/tinycbor
-	url = https://github.com/intel/tinycbor.git
 [submodule "Lib/littlefs"]
 	path = Lib/littlefs
 	url = https://github.com/littlefs-project/littlefs.git
