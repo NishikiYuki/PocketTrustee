@@ -7,3 +7,6 @@
 [submodule "Lib/cherryusb"]
 	path = Lib/cherryusb
 	url = https://github.com/cherry-embedded/CherryUSB.git
+[submodule "Lib/zcbor"]
+	path = Lib/zcbor
+	url = https://github.com/nordicsemi/zcbor.git
