@@ -22,11 +22,13 @@ add_subdirectory(cmake/stm32cubemx)
 add_subdirectory(src)
 add_subdirectory(cmake/littlefs)
 add_subdirectory(cmake/cherryusb)
+add_subdirectory(cmake/zcbor)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
     cherryusb
     littlefs
+    zcbor
 )
 
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)

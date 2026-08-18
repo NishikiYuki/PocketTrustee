@@ -379,7 +379,7 @@ void LPTIM2_IRQHandler(void)
 /**
   * @brief This function handles USB event interrupt through EXTI line 17.
   */
-void USB_IRQHandler(void)
+__weak void USB_IRQHandler(void)
 {
   /* USER CODE BEGIN USB_IRQn 0 */
 

@@ -6,8 +6,6 @@
 #ifndef CHERRYUSB_CONFIG_H
 #define CHERRYUSB_CONFIG_H
 
-#include "stm32l4xx_ll_usb.h"
-
 /* ================ USB common Configuration ================ */
 
 #ifdef __RTTHREAD__
@@ -263,7 +261,7 @@
 // #define CONFIG_USBDEV_SOF_ENABLE
 
 /* ---------------- FSDEV Configuration ---------------- */
-#define CONFIG_USBDEV_FSDEV_PMA_ACCESS PMA_ACCESS // maybe 1 or 2, many chips may have a difference
+#define CONFIG_USBDEV_FSDEV_PMA_ACCESS 1 // maybe 1 or 2, many chips may have a difference
 
 /* ---------------- DWC2 Configuration ---------------- */
 /* enable dwc2 buffer dma mode for device
