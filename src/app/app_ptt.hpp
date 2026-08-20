@@ -5,22 +5,27 @@
 #include "guiv2.hpp"
 
 namespace PocketTrustee {
-    class App final {
-    public:
-
-    private:
-
-    };
-
-    struct AppComponents final {
-        std::unique_ptr<guiv2::Gui> Gui;
-    };
-
-    class IDevice {
-    public:
+    struct IDevice {
         virtual ~IDevice() = default;
         virtual void Initialize() = 0;
         virtual std::string_view Name() const noexcept = 0;
+    };
+
+    struct AppComponents final {
+
+    };
+
+    class App final {
+        App() = default;
+    public:
+        App(const App&) = delete;
+        App& operator=(const App&) = delete;
+
+        static App& GetApp();
+
+        std::unique_ptr<guiv2::Gui> Gui;
+        lfs_t lfs;
+        lfs_config* disk;
     };
 }
 

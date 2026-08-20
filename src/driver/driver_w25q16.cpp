@@ -3,9 +3,9 @@
 using namespace PocketTrustee_LowLayer;
 
 namespace {
-    __aligned(4) uint8_t w25q16_prog_cache[ExternalW25Q16::kCacheSize];
-    __aligned(4) uint8_t w25q16_read_cache[ExternalW25Q16::kCacheSize];
-    __aligned(4) uint8_t w25q16_lookahead_cache[ExternalW25Q16::kLookaheadSize];
+    __aligned(8) uint8_t w25q16_prog_cache[ExternalW25Q16::kCacheSize];
+    __aligned(8) uint8_t w25q16_read_cache[ExternalW25Q16::kCacheSize];
+    __aligned(8) uint8_t w25q16_lookahead_cache[ExternalW25Q16::kLookaheadSize];
 
     int w25q16_read(const lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size) {
         const uint32_t addr = block * c->block_size + off;
@@ -54,8 +54,8 @@ lfs_config* ExternalW25Q16::getConfig() {
         .erase = w25q16_erase,
         .sync = w25q16_sync,
 
-        .read_size = 1,
-        .prog_size = 1,
+        .read_size = 256,
+        .prog_size = 256,
         .block_size = kBlockSize,
         .block_count = kBlockCount,
         .block_cycles = -1,

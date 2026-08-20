@@ -3,6 +3,7 @@
 #include "task.h"
 #include "app_ptt.hpp"
 #include "ll_epaper.hpp"
+#include "driver_w25q16.hpp"
 
 extern "C" {
 void StartDefaultTask(void const* argument);
@@ -16,10 +17,17 @@ void HAL_Delay(uint32_t Delay) {
 
 void StartDefaultTask(void const* argument) {
     DEBUG_INFO("RTOS Entrance");
-    PocketTrustee::AppComponents components;
+    auto& app = PocketTrustee::App::GetApp();
     {
-        components.Gui = std::make_unique<guiv2::Gui>(DeviceEpaper::getInstance());
+        app.disk = ExternalW25Q16::getConfig();
+        DEBUG_INFO("Register Disks");
+    }
+    {
+        app.Gui = std::make_unique<guiv2::Gui>(DeviceEpaper::getInstance());
         DEBUG_INFO("Register Gui");
+    }
+    {
+
     }
     for (;;) {
         HAL_Delay(1000);

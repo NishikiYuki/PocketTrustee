@@ -1,18 +1,16 @@
 #ifndef POCKETTRUSTEE_DRIVER_W25Q16_HPP
 #define POCKETTRUSTEE_DRIVER_W25Q16_HPP
 
-#include "lfs.h"
+#include "app_ptt.hpp"
 
-class ExternalW25Q16 {
-private:
-    ExternalW25Q16() = default;
-    ~ExternalW25Q16() = default;
+class ExternalW25Q16 final {
 public:
+    ExternalW25Q16() = delete;
     ExternalW25Q16(const ExternalW25Q16&) = delete;
     ExternalW25Q16& operator=(const ExternalW25Q16&) = delete;
 
     static constexpr uint32_t kCacheSize = 256;
-    static constexpr uint32_t kLookaheadSize = 32;
+    static constexpr uint32_t kLookaheadSize = 64;
 
     static constexpr uint32_t kPageSize = 256;
     static constexpr uint32_t kBlockSize = 4096;
