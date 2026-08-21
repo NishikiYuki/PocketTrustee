@@ -378,11 +378,9 @@ void Gui::PostEvent(const UiEvent& event) {
 
 void Gui::Start(void*) {
     mainTaskHandle_ = xTaskGetCurrentTaskHandle();
+    DEBUG_ASSERT(mainTaskHandle_ != nullptr);
     DEBUG_INFO("Gui start");
     for (;;) {
-        xTaskNotifyStateClear(mainTaskHandle_);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        gui_busy_ = true;
         if (auto focus = FocusedWindow()) {
             focus->OnEvent(pendingEvent_);
         }
@@ -390,6 +388,9 @@ void Gui::Start(void*) {
         ApplyPendingOperations();
         RenderIfNeeded();
         gui_busy_ = false;
+        xTaskNotifyStateClear(mainTaskHandle_);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        gui_busy_ = true;
     }
 }
 

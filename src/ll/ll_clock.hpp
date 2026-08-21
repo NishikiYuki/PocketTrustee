@@ -3,20 +3,24 @@
 
 #include "main.h"
 
-class CoreClock
-{
+class CoreClock {
 public:
-    enum CoreSpeedEnum
-    {
+    enum CoreSpeedEnum {
         CoreSpeedVeryLow,
         CoreSpeedLow,
         CoreSpeedHigh
     };
 
+    enum class CoreSleep : uint8_t {
+        AllowStop2,
+        WfiOnly,
+    };
+
     static void SystemClockConfig(CoreSpeedEnum speed);
 
-    static uint32_t GetHCLK_Value()
-    {
+    static void SetSleepMode(CoreSleep mode);
+
+    static uint32_t GetHCLK_Value() {
         return HAL_RCC_GetHCLKFreq();
     }
 };

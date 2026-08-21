@@ -14,20 +14,12 @@ void HAL_Delay(uint32_t Delay) {
     vTaskDelay(Delay);
 }
 
-void StartGuiTask(void const*) {
-    auto& app = PocketTrustee::App::InitOrGetApp();
-    app.Gui.Start(nullptr);
-}
-
 void StartDefaultTask(void const*) {
     DEBUG_INFO("RTOS Entrance");
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
     ShellSocket socket{app};
-    for (;;) {
-        HAL_Delay(100);
-    }
-    vTaskDelete(nullptr);
+    app.Gui.Start(nullptr);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {

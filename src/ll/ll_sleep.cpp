@@ -12,6 +12,7 @@ static constexpr uint32_t _LPTimer_MaximunMiliseconds = static_cast<uint32_t>(0x
 
 namespace {
 	__IO uint32_t lptimer_tick_last;
+	__IO CoreClock::CoreSleep mode_ = CoreClock::CoreSleep::WfiOnly;
 }
 
 void HAL_LPTIM_CompareMatchCallback(LPTIM_HandleTypeDef *hlptim) {
@@ -20,11 +21,20 @@ void HAL_LPTIM_CompareMatchCallback(LPTIM_HandleTypeDef *hlptim) {
     }
 }
 
+void CoreClock::SetSleepMode(CoreSleep mode) {
+	mode_ = mode;
+}
+
 extern "C"
 {
     void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
 		if( eTaskConfirmSleepModeStatus() != eAbortSleep )
 		{
+			if (mode_ != CoreClock::CoreSleep::AllowStop2) {
+				__WFI();
+				return;
+			}
+
 			DEBUG_INFO("Sleep For %lu", xExpectedIdleTime);
 
 			if (xExpectedIdleTime < _LPTimer_MaximunMiliseconds - 50) {
