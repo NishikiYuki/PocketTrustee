@@ -3,8 +3,10 @@
 #include "portable.h"
 
 void* operator new(size_t size) {
-    DEBUG_INFO("malloc %d", size);
-    return pvPortMalloc(size);
+    auto p = pvPortMalloc(size);
+    DEBUG_ASSERT(p != nullptr);
+    DEBUG_INFO("malloc %d at %p", size, p);
+    return p;
 }
 
 void operator delete(void* p) noexcept {

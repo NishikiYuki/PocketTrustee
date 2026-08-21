@@ -2,6 +2,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "app_ptt.hpp"
+#include "app_shell.hpp"
 
 extern "C" {
 void StartDefaultTask(void const*);
@@ -22,8 +23,9 @@ void StartDefaultTask(void const*) {
     DEBUG_INFO("RTOS Entrance");
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
+    ShellSocket socket{app};
     for (;;) {
-        HAL_Delay(1000);
+        HAL_Delay(100);
     }
     vTaskDelete(nullptr);
 }
