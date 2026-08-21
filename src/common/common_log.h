@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+extern unsigned long int HAL_GetTick();
+
 #define PKT_DEBUG_LEVEL_NONE (0)
 #define PKT_DEBUG_LEVEL_ERROR (1)
 #define PKT_DEBUG_LEVEL_WARN (2)

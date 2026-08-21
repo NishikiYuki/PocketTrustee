@@ -1,6 +1,7 @@
 #ifndef POCKETTRUSTEE_GUIV2_HPP
 #define POCKETTRUSTEE_GUIV2_HPP
 
+#include "common_log.h"
 #include <cstdint>
 #include <memory>
 #include <span>

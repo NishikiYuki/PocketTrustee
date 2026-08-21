@@ -15,3 +15,12 @@ target_sources(littlefs PRIVATE
 target_compile_definitions(littlefs PRIVATE
     LFS_DEFINES=lfs_config.h
 )
+
+if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    target_compile_definitions(littlefs PRIVATE
+        LFS_NO_DEBUG
+        LFS_NO_WARN
+        LFS_NO_ERROR
+        LFS_NO_ASSERT
+    )
+endif ()

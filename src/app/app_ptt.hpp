@@ -3,6 +3,7 @@
 
 #include "app_ptt_utility.hpp"
 #include "guiv2.hpp"
+#include "driver_usb.hpp"
 
 namespace PocketTrustee {
     struct IDevice {
@@ -16,16 +17,25 @@ namespace PocketTrustee {
     };
 
     class App final {
-        App() = default;
+        App(
+            guiv2::Gui& gui,
+            lfs_config* disk_,
+            DeviceUsb& usb_
+        ) :
+        Gui(gui), disk(disk_), usb(usb_) {
+            DEBUG_INFO("App constructed");
+        }
+
     public:
         App(const App&) = delete;
         App& operator=(const App&) = delete;
 
-        static App& GetApp();
+        static App& InitOrGetApp();
 
-        std::unique_ptr<guiv2::Gui> Gui;
-        lfs_t lfs;
+        guiv2::Gui& Gui;
+        lfs_t lfs{};
         lfs_config* disk;
+        DeviceUsb& usb;
     };
 }
 

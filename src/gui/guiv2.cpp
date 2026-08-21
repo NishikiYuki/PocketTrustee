@@ -340,6 +340,7 @@ Gui::Gui(IDisplay& display) :
     display_(display),
     frameBuffer_(display.getWidth(), display.getHeight()) {
     windows_.reserve(4);
+    DEBUG_INFO("Gui constructed");
 }
 
 void Gui::OpenWindow(std::unique_ptr<Window> window) {
@@ -377,6 +378,7 @@ void Gui::PostEvent(const UiEvent& event) {
 
 void Gui::Start(void*) {
     mainTaskHandle_ = xTaskGetCurrentTaskHandle();
+    DEBUG_INFO("Gui start");
     for (;;) {
         xTaskNotifyStateClear(mainTaskHandle_);
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);

@@ -7,17 +7,8 @@ class IRtcLowLayer {
 public:
     virtual ~IRtcLowLayer() = default;
 
-    /**
-     * @brief 配置RTC时钟源(LSE)并使能RTC。每次开机可安全调用,不会影响已有时间
-     */
     virtual void ll_init() = 0;
-
-    /**
-     * @brief 重新初始化RTC核心寄存器(分频器等),会清空当前时间。
-     *        仅在首次上电(备份RAM无有效档案)时调用
-     */
     virtual void ll_reset() = 0;
-
     virtual int write_backup_ram(uint8_t offset, int value) = 0;
     virtual int read_backup_ram(uint8_t offset, int * p_value) = 0;
     virtual void set_time(PocketTrustee::DateTime dt) = 0;

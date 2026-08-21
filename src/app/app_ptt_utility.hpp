@@ -1,6 +1,7 @@
 #ifndef POCKETTRUSTEE_APP_PTT_UTILITY_HPP
 #define POCKETTRUSTEE_APP_PTT_UTILITY_HPP
 
+#include "common_log.h"
 #include <cstdint>
 #include <string_view>
 #include <memory>
