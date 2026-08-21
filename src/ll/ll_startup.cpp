@@ -18,7 +18,7 @@ void StartDefaultTask(void const*) {
     DEBUG_INFO("RTOS Entrance");
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
-    ShellSocket socket{app};
+    ShellSocket::GetInstance().Start();
     app.Gui.Start(nullptr);
 }
 

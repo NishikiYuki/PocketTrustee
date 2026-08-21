@@ -43,6 +43,8 @@ extern unsigned long int HAL_GetTick();
 do { \
     if (!(f)) {DEBUG_ERROR("Assert Fail %s:%d", __FILE__, __LINE__); while(1){}; } \
 } while(0)
+#else
+#define DEBUG_ASSERT(f)
 #endif
 
 struct Exception {

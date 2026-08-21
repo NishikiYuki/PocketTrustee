@@ -9,7 +9,7 @@ App& App::InitOrGetApp() {
     static App app{
         gui,
         ExternalW25Q16::getConfig(),
-        DeviceUsb::GetInstance(),
+        DeviceUsb::GetInstance()
     };
     return app;
 }
