@@ -24,7 +24,8 @@ namespace {
                 write_len = page_remain;
             }
             w25q16::page_program(addr, data, write_len);
-            while (w25q16::read_busy()) {
+            if (!w25q16::wait_ready()) {
+                return LFS_ERR_IO;
             }
             addr += write_len;
             data += write_len;
@@ -36,7 +37,8 @@ namespace {
     int w25q16_erase(const lfs_config* c, lfs_block_t block) {
         const uint32_t addr = block * c->block_size;
         w25q16::sector_erase(addr);
-        while (w25q16::read_busy()) {
+        if (!w25q16::wait_ready()) {
+            return LFS_ERR_IO;
         }
         return LFS_ERR_OK;
     }
@@ -45,7 +47,7 @@ namespace {
         (void)(c);
         return LFS_ERR_OK;
     }
-}
+} // namespace
 
 lfs_config* ExternalW25Q16::getConfig() {
     static lfs_config w25q16_config = {

@@ -3,6 +3,7 @@
 
 namespace {
     constexpr SPI_HandleTypeDef* kSPI = &hspi1;
+    constexpr uint32_t kW25q16ReadyTimeout = 2000;
 
     void poll_for_spi_ready() {
         uint16_t timeout = 1000;
@@ -13,9 +14,7 @@ namespace {
         }
     }
 
-    void transmit_cmd(const uint8_t* data, uint16_t len) {
-        HAL_SPI_Transmit(&hspi1, data, len, 100);
-    }
+    void transmit_cmd(const uint8_t* data, uint16_t len) { HAL_SPI_Transmit(&hspi1, data, len, 100); }
 
     void transmit_data(const uint8_t* data, const uint16_t len) {
         if (len < 16)
@@ -41,12 +40,11 @@ namespace {
         transmit_cmd(&cmd, 1);
         FCS_GPIO_Port->BSRR = FCS_Pin;
     }
-}
+} // namespace
 
 namespace PocketTrustee_LowLayer::w25q16 {
     void read_data(const uint32_t addr, uint8_t* rx_buffer, const uint16_t len) {
-        const uint8_t cmd[4]
-        {
+        const uint8_t cmd[4]{
             0x03,
             static_cast<uint8_t>(addr >> 16),
             static_cast<uint8_t>(addr >> 8),
@@ -60,8 +58,7 @@ namespace PocketTrustee_LowLayer::w25q16 {
 
     void page_program(const uint32_t addr, const uint8_t* data, const uint16_t len) {
         write_enable();
-        const uint8_t cmd[4]
-        {
+        const uint8_t cmd[4]{
             0x02,
             static_cast<uint8_t>(addr >> 16),
             static_cast<uint8_t>(addr >> 8),
@@ -75,8 +72,7 @@ namespace PocketTrustee_LowLayer::w25q16 {
 
     void sector_erase(const uint32_t addr) {
         write_enable();
-        const uint8_t cmd[4]
-        {
+        const uint8_t cmd[4]{
             0x20,
             static_cast<uint8_t>(addr >> 16),
             static_cast<uint8_t>(addr >> 8),
@@ -107,4 +103,15 @@ namespace PocketTrustee_LowLayer::w25q16 {
         }
         return false;
     }
-}
+
+    bool wait_ready() {
+        const uint32_t start = HAL_GetTick();
+        while (read_busy()) {
+            if ((HAL_GetTick() - start) >= kW25q16ReadyTimeout) {
+                return false;
+            }
+            HAL_Delay(1);
+        }
+        return true;
+    }
+} // namespace PocketTrustee_LowLayer::w25q16

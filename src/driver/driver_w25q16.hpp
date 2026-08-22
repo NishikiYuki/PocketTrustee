@@ -16,7 +16,7 @@ public:
     static constexpr uint32_t kBlockSize = 4096;
     static constexpr uint32_t kBlockCount = 512;
 
-    static lfs_config * getConfig();
+    static lfs_config* getConfig();
 };
 
 namespace PocketTrustee_LowLayer::w25q16 {
@@ -25,6 +25,7 @@ namespace PocketTrustee_LowLayer::w25q16 {
     void sector_erase(const uint32_t addr);
     void chip_erase();
     bool read_busy();
-}
+    bool wait_ready();
+} // namespace PocketTrustee_LowLayer::w25q16
 
-#endif //POCKETTRUSTEE_DRIVER_W25Q16_HPP
+#endif // POCKETTRUSTEE_DRIVER_W25Q16_HPP

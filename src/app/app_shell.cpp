@@ -1,8 +1,8 @@
 #include "app_shell.hpp"
-#include "usb_imp_acm.hpp"
 #include "FreeRTOS.h"
-#include "task.h"
 #include "command_common.hpp"
+#include "task.h"
+#include "usb_imp_acm.hpp"
 
 namespace {
     constexpr uint16_t kShellStackSize = 512;
@@ -11,18 +11,22 @@ namespace {
     TaskHandle_t shell_task_handle{};
 
     CommandDeviceInfo deviceInfo;
+    CommandLs ls;
+    CommandMkdir mkdir;
+    CommandRm rm;
+    CommandMv mv;
+    CommandWrite write;
+    CommandRead read;
     ICommand* commandList[] = {
-        &deviceInfo,
+        &deviceInfo, &ls, &mkdir, &rm, &mv, &write, &read,
     };
 
-    ICommand * currentCommand = nullptr;
+    ICommand* currentCommand = nullptr;
 
     void ShellMainThread(void*) {
         auto& shell = ShellSocket::GetInstance();
         auto& port = UsbAcmDevice::GetInstance();
-        port.RegisterNewMessageHandler([](uint16_t) {
-            vTaskNotifyGiveFromISR(shell_task_handle, nullptr);
-        });
+        port.RegisterNewMessageHandler([](uint16_t) { vTaskNotifyGiveFromISR(shell_task_handle, nullptr); });
         for (;;) {
             port.Clear();
             xTaskNotifyStateClear(shell_task_handle);
@@ -68,9 +72,8 @@ void ShellSocket::Start() {
     DEBUG_ASSERT(!App.usb.HasDevice());
     App.usb.RegisterDevice(&UsbAcmDevice::GetInstance());
     CoreClock::SetSleepMode(CoreClock::CoreSleep::WfiOnly);
-    shell_task_handle = xTaskCreateStatic(ShellMainThread, "shell",
-                                          kShellStackSize, nullptr, 4,
-                                          shell_stack, &shell_task_tcb);
+    shell_task_handle =
+        xTaskCreateStatic(ShellMainThread, "shell", kShellStackSize, nullptr, 4, shell_stack, &shell_task_tcb);
     DEBUG_ASSERT(shell_task_handle != nullptr);
     DEBUG_INFO("Shell start");
 }
