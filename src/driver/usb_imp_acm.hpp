@@ -19,6 +19,7 @@ public:
     using NewMessageHandler = std::move_only_function<void (uint16_t)>;
 
     void RegisterNewMessageHandler(NewMessageHandler f);
+    void Clear();
     uint16_t Read(uint8_t* buffer, uint16_t size);
     uint16_t Write(std::span<const uint8_t> buffer);
 };

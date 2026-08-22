@@ -19,6 +19,9 @@ void StartDefaultTask(void const*) {
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
     ShellSocket::GetInstance().Start();
+    for (;;) {
+        HAL_Delay(100);
+    }
     app.Gui.Start(nullptr);
 }
 

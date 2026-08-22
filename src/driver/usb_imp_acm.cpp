@@ -46,7 +46,7 @@ namespace {
         bool eof = nbytes != kCdcMaxMps;
         rx_ringbuffer.write(read_buffer, nbytes, eof);
         usbd_ep_start_read(busid, kEndpoint_OUT, read_buffer, kCdcMaxMps);
-        if (eof && rx_new_message_handler) {
+        if (eof && rx_new_message_handler && nbytes) {
             rx_new_message_handler(rx_ringbuffer.get_used());
         }
     }
@@ -136,6 +136,10 @@ void UsbAcmDevice::Config() {
     usbd_add_endpoint(0, &ep_in);
     usbd_add_endpoint(0, &ep_out);
     usbd_initialize(0, USB_BASE, usbd_event_handler);
+}
+
+void UsbAcmDevice::Clear() {
+    rx_ringbuffer.clear();
 }
 
 uint16_t UsbAcmDevice::Read(uint8_t* buffer, uint16_t size) {

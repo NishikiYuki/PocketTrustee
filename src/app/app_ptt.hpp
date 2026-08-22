@@ -13,13 +13,6 @@ namespace PocketTrustee {
         virtual std::string_view Name() const noexcept = 0;
     };
 
-    struct IService {
-        virtual ~IService() = default;
-        virtual std::string_view Name() const noexcept = 0;
-        virtual void Start() = 0;
-        virtual void Stop() = 0;
-    };
-
     class App final {
         App(
             guiv2::Gui& gui,
