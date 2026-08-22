@@ -21,15 +21,9 @@ target_sources(cherryusb PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Lib/cherryusb/port/fsdev/usb_dc_fsdev.c
 )
 
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    set(USB_COMPILE_DEFINES
-        CONFIG_USB_DBG_LEVEL=USB_DBG_INFO
-    )
-else ()
-    set(USB_COMPILE_DEFINES
-        CONFIG_USB_DBG_LEVEL=USB_DBG_ERROR
-        CONFIG_USB_ASSERT_DISABLE
-    )
-endif ()
+target_compile_options(cherryusb PRIVATE -Os -g0)
 
-target_compile_definitions(cherryusb PRIVATE ${USB_COMPILE_DEFINES})
+target_compile_definitions(cherryusb PRIVATE
+    CONFIG_USB_DBG_LEVEL=USB_DBG_ERROR
+    CONFIG_USB_ASSERT_DISABLE
+)

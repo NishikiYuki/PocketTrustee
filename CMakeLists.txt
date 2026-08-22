@@ -35,9 +35,8 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -u _scanf_float)
 
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-        PKT_DEBUG_LEVEL=PKT_DEBUG_LEVEL_INFO
-        PKT_ENABLE_ASSERT
-    )
-endif ()
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+    PKT_DEBUG_LEVEL=PKT_DEBUG_LEVEL_INFO
+    PKT_ENABLE_ASSERT
+)
+

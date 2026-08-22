@@ -13,4 +13,4 @@ target_sources(zcbor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Lib/zcbor/src/zcbor_print.c
 )
 
-target_compile_options(zcbor PRIVATE "-w")
+target_compile_options(zcbor PRIVATE -w -Os -g0)

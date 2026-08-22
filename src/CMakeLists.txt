@@ -12,7 +12,7 @@ set(SourceIncDir
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} SOURCE_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/app SOURCE_APP_LIST)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/app SOURCE_COMMON_LIST)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/common SOURCE_COMMON_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/driver SOURCE_DRIVER_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/gui SOURCE_GUI_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/gui/view SOURCE_VIEW_LIST)

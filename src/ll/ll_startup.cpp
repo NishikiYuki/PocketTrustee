@@ -3,6 +3,7 @@
 #include "task.h"
 #include "app_ptt.hpp"
 #include "app_shell.hpp"
+#include "view_startup.hpp"
 
 extern "C" {
 void StartDefaultTask(void const*);
@@ -19,9 +20,7 @@ void StartDefaultTask(void const*) {
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
     ShellSocket::GetInstance().Start();
-    for (;;) {
-        HAL_Delay(100);
-    }
+    app.Gui.OpenWindow(std::make_unique<ViewStartup::StartupWindow>(app.Gui));
     app.Gui.Start(nullptr);
 }
 
