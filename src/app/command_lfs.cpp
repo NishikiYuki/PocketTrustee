@@ -1,7 +1,5 @@
 #include "command_common.hpp"
-
 #include "app_ptt_utility.hpp"
-
 #include <cstring>
 
 namespace {
@@ -251,7 +249,7 @@ void CommandRead::Invoke(Request& req) {
         return;
     }
 
-    lfs_size_t remaining = static_cast<lfs_size_t>(file_size);
+    auto remaining = static_cast<lfs_size_t>(file_size);
     do {
         const lfs_size_t requested = remaining > kChunkSize ? kChunkSize : remaining;
         const lfs_ssize_t read = lfs_file_read(file.lfs, &file.f, req.shell.RxBuffer, requested);
@@ -268,4 +266,26 @@ void CommandRead::Invoke(Request& req) {
     while (remaining != 0);
 
     (void)SendDone(req.shell);
+}
+
+void CommandFormat::Invoke(Request& req) {
+    if (!EndRequest(req.state)) {
+        SendFilesystemError(req.shell, LFS_ERR_INVAL);
+        return;
+    }
+
+    int error = lfs_unmount(&req.shell.App.lfs);
+    if (error == LFS_ERR_OK) {
+        error = lfs_format(&req.shell.App.lfs, req.shell.App.disk);
+    }
+    if (error == LFS_ERR_OK) {
+        error = lfs_mount(&req.shell.App.lfs, req.shell.App.disk);
+    }
+
+    if (error == LFS_ERR_OK) {
+        (void)SendSuccess(req.shell);
+    }
+    else {
+        SendFilesystemError(req.shell, error);
+    }
 }

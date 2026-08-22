@@ -60,4 +60,10 @@ public:
     void Invoke(Request& req) override;
 };
 
+class CommandFormat final : public ICommand {
+public:
+    std::string_view Name() const noexcept override { return "format"; }
+    void Invoke(Request& req) override;
+};
+
 #endif // POCKETTRUSTEE_COMMAND_COMMON_HPP

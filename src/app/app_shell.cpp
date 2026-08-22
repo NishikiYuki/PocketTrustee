@@ -17,8 +17,9 @@ namespace {
     CommandMv mv;
     CommandWrite write;
     CommandRead read;
+    CommandFormat format;
     ICommand* commandList[] = {
-        &deviceInfo, &ls, &mkdir, &rm, &mv, &write, &read,
+        &deviceInfo, &ls, &mkdir, &rm, &mv, &write, &read, &format,
     };
 
     ICommand* currentCommand = nullptr;
