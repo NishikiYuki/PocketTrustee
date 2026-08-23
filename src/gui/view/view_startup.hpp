@@ -11,6 +11,8 @@ namespace ViewStartup {
         explicit StartupWindow(Gui& host) : Window(host, {{}, 296, 128}) {
             host.Invalidate(true);
         }
+    protected:
+        void OnRender(Scheme& scheme) override;
     };
 }
 

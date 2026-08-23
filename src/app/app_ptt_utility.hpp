@@ -8,6 +8,14 @@
 #include "lfs.h"
 
 namespace PocketTrustee {
+    struct Version {
+        constexpr Version(uint8_t major, uint8_t minor) : major(major), minor(minor) {}
+        uint8_t major{};
+        uint8_t minor{};
+    };
+
+    constexpr Version MVersion = {2, 0};
+
     enum class TimeZoneOffset : int32_t {
         None = 0,
         Shanghai = (+8 * 3600)

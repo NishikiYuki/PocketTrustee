@@ -208,6 +208,22 @@ Scheme& Scheme::PasteFrom(const Scheme& src, Point2u pos) {
     return *this;
 }
 
+Scheme& Scheme::PasteFrom(const ReadonlyMonoBitMap& src, Point2u pos) {
+    if (pos.x >= width_ || pos.y >= height_)
+        return *this;
+    const auto xCount = clamp<size_t>(src.Width(), 0, width_ - pos.x);
+    const auto yCount = clamp<size_t>(src.Height(), 0, height_ - pos.y);
+    if (xCount == 0 || yCount == 0)
+        return *this;
+
+    for (size_t y = 0; y < yCount; y++) {
+        for (size_t x = 0; x < xCount; x++) {
+            Point({pos.x + x, pos.y + y}, src[{x, y}]);
+        }
+    }
+    return *this;
+}
+
 Scheme& Scheme::PasteTo(Scheme& dst, Point2u pos) const {
     dst.PasteFrom(*this, pos);
     return dst;

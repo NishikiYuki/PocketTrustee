@@ -17,6 +17,9 @@ namespace guiv2 {
     using pointer = T*;
 
     struct Point2u {
+        constexpr Point2u(size_t x, size_t y) : x(x), y(y) {}
+        constexpr Point2u() : x(0), y(0) {}
+
         size_t x, y;
 
         Point2u operator+(const Point2u& other) const {
@@ -39,6 +42,14 @@ namespace guiv2 {
 
         bool operator<(const Point2u& other) const {
             return x < other.x && y < other.y;
+        }
+
+        static constexpr Point2u Center(const Point2u& a, const Point2u& b) {
+            return {(a.x + b.x) / 2, (a.y + b.y) / 2};
+        }
+
+        static constexpr Point2u CenterOrientedOrigin(size_t width, size_t height, const Point2u& center) {
+            return {center.x - width / 2, center.y - height / 2};
         }
     };
 
@@ -139,6 +150,7 @@ namespace guiv2 {
         Scheme& Border(Point2u pos1, Point2u pos2, uint8_t value, uint8_t thickness = 1);
         Scheme& Invert(Point2u pos1, Point2u pos2);
         Scheme& PasteFrom(const Scheme& src, Point2u pos);
+        Scheme& PasteFrom(const ReadonlyMonoBitMap& src, Point2u pos);
         Scheme& PasteTo(Scheme& dst, Point2u pos) const;
         Scheme& Text(std::string_view text, const IFont& font, Point2u pos);
 
