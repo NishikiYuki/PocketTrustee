@@ -1,5 +1,6 @@
 #include "view_startup.hpp"
 #include "gui_base_font.hpp"
+#include "gui_extension.hpp"
 
 using namespace ViewStartup;
 
@@ -76,23 +77,39 @@ void StartupWindow::OnRender(Scheme& scheme) {
 
 void StartupWindow::OnEvent(const UiEvent& event) {
     if (event.bEvent == UiEvent::BasicEnter) {
-        host_.OpenWindow(std::make_unique<InitializeDialog>(host_));
-    }
-}
-
-void InitializeDialog::OnRender(Scheme& scheme) {
-    scheme.Clear();
-    scheme.Border(1);
-    auto& font = base_font::Ascii1608::Get();
-    scheme.Text(
-        "Hi!",
-        font,
-        Point2u::CenterOrientedOrigin(24, 16, {rect_.width / 2, 10})
-    );
-}
-
-void InitializeDialog::OnEvent(const UiEvent& event) {
-    if (event.bEvent == UiEvent::BasicEnter) {
-        host_.Close(*this);
+        WindowRect rect = {
+            .origin = Point2u::CenterOrientedOrigin(128, 96, {rect_.width / 2, rect_.height / 2}),
+            .width = 128,
+            .height = 96,
+        };
+        auto callback = [this, rect](int n) {
+            std::string_view t;
+            if (n == 1) {
+                t = "Ok";
+            }
+            else {
+                t = "Cancel";
+            }
+            auto wn = std::make_unique<extension::OptionWindow>(
+                host_,
+                rect,
+                "Clicked!",
+                t,
+                "Ok",
+                "Cancel",
+                nullptr
+            );
+            host_.OpenWindow(std::move(wn));
+        };
+        auto wn = std::make_unique<extension::OptionWindow>(
+            host_,
+            rect,
+            "Hello",
+            "Hello World!",
+            "Ok",
+            "Cancel",
+            std::move(callback)
+        );
+        host_.OpenWindow(std::move(wn));
     }
 }

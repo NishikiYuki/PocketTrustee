@@ -280,12 +280,6 @@ namespace guiv2 {
          */
         virtual void OnEvent(const UiEvent& event);
 
-        /**
-         * @brief 当窗体被关闭时触发
-         */
-        virtual void OnClose() {
-        }
-
         friend class Gui;
 
         static constexpr size_t kNoControl = 0xFFFFFFFF;

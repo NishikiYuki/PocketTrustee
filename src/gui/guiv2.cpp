@@ -156,6 +156,9 @@ Scheme& Scheme::Line(Point2u pos1, Point2u pos2, uint8_t value) {
 }
 
 Scheme& Scheme::Border(Point2u pos1, Point2u pos2, uint8_t value, uint8_t thickness) {
+    if (pos2.y < thickness || pos2.x < thickness) {
+        return *this;
+    }
     Fill(pos1, {pos2.x, pos1.y + thickness}, value);
     Fill({pos1.x, pos2.y - thickness}, pos2, value);
     Fill(pos1, {pos1.x + thickness, pos2.y}, value);
@@ -343,10 +346,12 @@ void Window::OnEvent(const UiEvent& event) {
         control->OnEvent(event, *this))
         return;
 
-    if (event.bEvent == UiEvent::BasicUp && MoveControlFocus(-1))
-        return;
-    if (event.bEvent == UiEvent::BasicDown && MoveControlFocus(1))
-        return;
+    if (event.bEvent == UiEvent::BasicUp) {
+        MoveControlFocus(-1);
+    }
+    else if (event.bEvent == UiEvent::BasicDown) {
+        MoveControlFocus(1);
+    }
 }
 
 void Window::Invalidate() {
@@ -388,7 +393,6 @@ void Gui::Close(Window& window) {
             return;
         auto wn = std::move(*it);
         windows_.erase(it);
-        wn->OnClose();
         wn.reset();
         Invalidate();
     });

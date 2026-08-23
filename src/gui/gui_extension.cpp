@@ -1,1 +1,35 @@
 #include "gui_extension.hpp"
+
+using namespace guiv2::extension;
+
+void ButtonControl::OnRender(Scheme& window, Window& parent) {
+    auto pos2 = Rect.origin + Point2u{Rect.width, Rect.height};
+    if (focused_) {
+        window.Border(Rect.origin, pos2, 0, Border + 1);
+    }
+    else if (Border) {
+        window.Border(Rect.origin, pos2, 0, Border);
+    }
+    size_t len = Text.size() * 8;
+    window.Text(
+        Text, base_font::Ascii1608::Get(),
+        Point2u::CenterOrientedOrigin(len, 16, Point2u::Center(Rect.origin, pos2))
+    );
+}
+
+bool ButtonControl::OnEvent(const UiEvent& event, Window& parent) {
+    if (event.bEvent == UiEvent::BasicEnter && OnClick) {
+        OnClick();
+        return true;
+    }
+    return false;
+}
+
+void OptionWindow::OnRender(Scheme& scheme) {
+    scheme.Clear();
+    Window::OnRender(scheme);
+    scheme.Border();
+    scheme.Line({0, 18}, {rect_.width - 1, 18}, 0);
+    scheme.Text(Title, base_font::Ascii1608::Get(), {2, 1});
+    scheme.Text(Text, base_font::Ascii1608::Get(), {2, 19});
+}
