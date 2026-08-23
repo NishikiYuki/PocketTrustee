@@ -22,8 +22,3 @@ target_sources(cherryusb PRIVATE
 )
 
 target_compile_options(cherryusb PRIVATE -Os -g0)
-
-target_compile_definitions(cherryusb PRIVATE
-    CONFIG_USB_DBG_LEVEL=USB_DBG_ERROR
-    CONFIG_USB_ASSERT_DISABLE
-)

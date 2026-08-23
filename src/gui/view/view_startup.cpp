@@ -1,6 +1,7 @@
 #include "view_startup.hpp"
 #include "gui_base_font.hpp"
 #include "gui_extension.hpp"
+#include "app_ptt.hpp"
 
 using namespace ViewStartup;
 
@@ -73,6 +74,10 @@ void StartupWindow::OnRender(Scheme& scheme) {
         ReadonlyMonoBitMap map{16, 32, &startup_font[access_table[i] * chr_size]};
         scheme.PasteFrom(map, origin + Point2u{static_cast<size_t>(i * 16), 0});
     }
+    char vstr[32];
+    int len = sprintf(vstr, "App Ver %u.%u", PocketTrustee::MVersion.major, PocketTrustee::MVersion.minor);
+    if (len < 0) return;
+    scheme.Text(std::string_view{vstr, static_cast<size_t>(len)}, base_font::Ascii1608::Get(), {2, 112});
 }
 
 void StartupWindow::OnEvent(const UiEvent& event) {
