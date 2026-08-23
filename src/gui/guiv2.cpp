@@ -242,13 +242,26 @@ Scheme& Scheme::PasteTo(Scheme& dst, Point2u pos) const {
 }
 
 Scheme& Scheme::Text(std::string_view text, const IFont& font, Point2u pos) {
+    if (width_ == 0 || height_ == 0)
+        return *this;
+    if (pos.x >= width_ || pos.y >= height_)
+        return *this;
+
+    const size_t lineStartX = pos.x;
     for (size_t i = 0; i < text.size();) {
         const auto glyph = font.GetChar(DecodeUTF8(text, i));
         const size_t gWidth = glyph.Width();
         if (gWidth == 0)
             continue; // 字形缺失,不绘制也不推进
-        if (pos.x >= width_ || pos.y >= height_)
-            break; // 单行文本,剩余字形只会更靠右,整体裁剪
+
+        // 当前字形放不下时换到下一行。字形本身比Scheme更宽时只能裁剪。
+        if (pos.x >= width_ || (gWidth <= width_ && gWidth > width_ - pos.x)) {
+            pos.x = lineStartX;
+            pos.y += glyph.Height();
+        }
+        if (pos.y >= height_)
+            break;
+
         const auto xEnd = clamp<size_t>(gWidth, 0, width_ - pos.x);
         const auto yEnd = clamp<size_t>(glyph.Height(), 0, height_ - pos.y);
         for (size_t y = 0; y < yEnd; y++) {
