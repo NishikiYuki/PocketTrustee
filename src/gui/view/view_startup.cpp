@@ -1,4 +1,5 @@
 #include "view_startup.hpp"
+#include "gui_base_font.hpp"
 
 using namespace ViewStartup;
 
@@ -70,5 +71,28 @@ void StartupWindow::OnRender(Scheme& scheme) {
     for (uint8_t i = 0; i < 13; i++) {
         ReadonlyMonoBitMap map{16, 32, &startup_font[access_table[i] * chr_size]};
         scheme.PasteFrom(map, origin + Point2u{static_cast<size_t>(i * 16), 0});
+    }
+}
+
+void StartupWindow::OnEvent(const UiEvent& event) {
+    if (event.bEvent == UiEvent::BasicEnter) {
+        host_.OpenWindow(std::make_unique<InitializeDialog>(host_));
+    }
+}
+
+void InitializeDialog::OnRender(Scheme& scheme) {
+    scheme.Clear();
+    scheme.Border(1);
+    auto& font = base_font::Ascii1608::Get();
+    scheme.Text(
+        "Hi!",
+        font,
+        Point2u::CenterOrientedOrigin(24, 16, {rect_.width / 2, 10})
+    );
+}
+
+void InitializeDialog::OnEvent(const UiEvent& event) {
+    if (event.bEvent == UiEvent::BasicEnter) {
+        host_.Close(*this);
     }
 }

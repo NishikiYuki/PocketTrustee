@@ -71,8 +71,8 @@ ShellSocket& ShellSocket::GetInstance() {
 
 void ShellSocket::Start() {
     DEBUG_ASSERT(!App.usb.HasDevice());
+    App.TakeActiveToken(this);
     App.usb.RegisterDevice(&UsbAcmDevice::GetInstance());
-    CoreClock::SetSleepMode(CoreClock::CoreSleep::WfiOnly);
     shell_task_handle =
         xTaskCreateStatic(ShellMainThread, "shell", kShellStackSize, nullptr, 4, shell_stack, &shell_task_tcb);
     DEBUG_ASSERT(shell_task_handle != nullptr);
@@ -82,7 +82,7 @@ void ShellSocket::Start() {
 void ShellSocket::Stop() {
     vTaskDelete(shell_task_handle);
     App.usb.PopCurrentDevice();
-    CoreClock::SetSleepMode(CoreClock::CoreSleep::AllowStop2);
+    App.DisposeActiveToken(this);
     DEBUG_INFO("Shell stop");
 }
 

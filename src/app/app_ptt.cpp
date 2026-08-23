@@ -19,3 +19,17 @@ App& App::InitOrGetApp() {
     }
     return app;
 }
+
+void App::TakeActiveToken(const void* promise) {
+    if (token_promises_.empty()) {
+        CoreClock::SetSleepMode(CoreClock::CoreSleep::WfiOnly);
+    }
+    token_promises_.push_back(promise);
+}
+
+void App::DisposeActiveToken(const void* promise) {
+    std::erase(token_promises_, promise);
+    if (token_promises_.empty()) {
+        CoreClock::SetSleepMode(CoreClock::CoreSleep::AllowStop2);
+    }
+}

@@ -20,6 +20,7 @@ namespace PocketTrustee {
             DeviceUsb& usb_
         ) :
         Gui(gui), disk(disk_), usb(usb_) {
+            token_promises_.reserve(8);
             DEBUG_INFO("App constructed");
         }
 
@@ -29,10 +30,17 @@ namespace PocketTrustee {
 
         static App& InitOrGetApp();
 
+        // To better manager the sleep behaviour, tasks now can take or dispose active token
+        // Once no task have token, system is allowed to enter sleep mode
+        void TakeActiveToken(const void * promise);
+        void DisposeActiveToken(const void * promise);
+
         guiv2::Gui& Gui;
         lfs_t lfs{};
         lfs_config* disk;
         DeviceUsb& usb;
+    private:
+        std::vector<const void*> token_promises_;
     };
 }
 

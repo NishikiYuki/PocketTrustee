@@ -17,8 +17,11 @@ namespace guiv2 {
     using pointer = T*;
 
     struct Point2u {
-        constexpr Point2u(size_t x, size_t y) : x(x), y(y) {}
-        constexpr Point2u() : x(0), y(0) {}
+        constexpr Point2u(size_t x, size_t y) : x(x), y(y) {
+        }
+
+        constexpr Point2u() : x(0), y(0) {
+        }
 
         size_t x, y;
 
@@ -146,8 +149,10 @@ namespace guiv2 {
 
         uint8_t operator[](Point2u pos) const { return map_[pos + origin_]; }
         Scheme& Fill(Point2u pos1, Point2u pos2, uint8_t value);
+        Scheme& Clear() { return Fill({}, {width_, height_}, 1); }
         Scheme& Line(Point2u pos1, Point2u pos2, uint8_t value);
         Scheme& Border(Point2u pos1, Point2u pos2, uint8_t value, uint8_t thickness = 1);
+        Scheme& Border(uint8_t thickness = 1);
         Scheme& Invert(Point2u pos1, Point2u pos2);
         Scheme& PasteFrom(const Scheme& src, Point2u pos);
         Scheme& PasteFrom(const ReadonlyMonoBitMap& src, Point2u pos);
@@ -235,6 +240,9 @@ namespace guiv2 {
         explicit Window(Gui& host, const WindowRect& rect) : host_(host), rect_(rect) {
         }
 
+        explicit Window(Gui& host) : host_(host) {
+        }
+
         virtual ~Window() = default;
 
         Window(const Window&) = delete;
@@ -252,8 +260,6 @@ namespace guiv2 {
 
         void OpenWindow(std::unique_ptr<Window> window);
         void Close();
-
-        Gui& Host() { return host_; }
 
     protected:
         /**
@@ -280,7 +286,6 @@ namespace guiv2 {
         virtual void OnClose() {
         }
 
-    private:
         friend class Gui;
 
         static constexpr size_t kNoControl = 0xFFFFFFFF;
@@ -311,9 +316,12 @@ namespace guiv2 {
          */
         void Start(void*);
 
-        void Invalidate(bool mark_as_strong=false);
+        void Invalidate(bool mark_as_strong = false);
         Window* FocusedWindow();
         const Window* FocusedWindow() const;
+
+        size_t Width() const { return display_.getWidth(); }
+        size_t Height() const { return display_.getHeight(); }
 
     private:
         void ApplyPendingOperations();

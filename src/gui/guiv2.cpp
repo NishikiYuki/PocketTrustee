@@ -163,6 +163,15 @@ Scheme& Scheme::Border(Point2u pos1, Point2u pos2, uint8_t value, uint8_t thickn
     return *this;
 }
 
+Scheme& Scheme::Border(uint8_t thickness) {
+    return Border(
+        {0, 0},
+        {width_, height_},
+        static_cast<uint8_t>(EpdColor::kBlack),
+        thickness
+    );
+}
+
 Scheme& Scheme::Invert(Point2u pos1, Point2u pos2) {
     for (size_t y = pos1.y; y < pos2.y && y < height_; y++) {
         for (size_t x = pos1.x; x < pos2.x && x < width_; x++) {
@@ -362,7 +371,7 @@ Gui::Gui(IDisplay& display) :
 void Gui::OpenWindow(std::unique_ptr<Window> window) {
     if (!window)
         return;
-    pendingQueue_.push([this, wn = std::move(window)] mutable  {
+    pendingQueue_.push([this, wn = std::move(window)] mutable {
         wn->OnCreate();
         windows_.emplace_back(std::move(wn));
         Invalidate();
