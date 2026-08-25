@@ -20,18 +20,14 @@ public:
     virtual void set_channel(MultiplexerChannel channel) = 0;
 };
 
-class DeviceMultiplexer final : public PocketTrustee::IDevice {
+class DeviceMultiplexer final {
 public:
     using MultiplexerChannel = IMultiplexerLowLayer::MultiplexerChannel;
 
     explicit DeviceMultiplexer(IMultiplexerLowLayer& ll) : ll_(ll) {}
 
-    void Initialize() override {
+    void Initialize() {
         ll_.ll_init();
-    }
-
-    std::string_view Name() const noexcept override {
-        return "multiplexer";
     }
 
     MultiplexerChannel Get();

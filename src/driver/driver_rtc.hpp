@@ -15,13 +15,9 @@ public:
     virtual PocketTrustee::DateTime get_time() = 0;
 };
 
-class DeviceRtc final : public PocketTrustee::IDevice {
+class DeviceRtc final {
 public:
-    void Initialize() override;
-
-    std::string_view Name() const noexcept override {
-        return "rtc";
-    }
+    void Initialize();
 
     explicit DeviceRtc(IRtcLowLayer& ll) : ll_{ll} {}
 

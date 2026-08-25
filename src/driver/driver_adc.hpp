@@ -16,13 +16,9 @@ public:
     virtual void scan(AdcAquireData * buffer) = 0;
 };
 
-class DeviceAdc final : public PocketTrustee::IDevice {
+class DeviceAdc final {
 public:
-    void Initialize() override;
-
-    std::string_view Name() const noexcept override {
-        return "adc";
-    }
+    void Initialize();
 
     DeviceAdc(IAdcLowLayer& ll) : ll_{ll} {}
 

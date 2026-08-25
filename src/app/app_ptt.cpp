@@ -1,5 +1,6 @@
 #include "app_ptt.hpp"
 #include "ll_epaper.hpp"
+#include "ll_clock.hpp"
 #include "driver_w25q16.hpp"
 
 using namespace PocketTrustee;

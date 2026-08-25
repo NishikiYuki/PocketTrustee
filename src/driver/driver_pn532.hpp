@@ -18,13 +18,9 @@ public:
     virtual void unregister_receive_handler() = 0;
 };
 
-class DeviceNxpPn532 final : public PocketTrustee::IDevice {
+class DeviceNxpPn532 final {
 public:
-    void Initialize() override;
-
-    std::string_view Name() const noexcept override {
-        return "nxp_pn532";
-    }
+    void Initialize();
 
     explicit DeviceNxpPn532(INxpPn532LowLayer& port) : ll_(port) {
     }
