@@ -16,7 +16,7 @@ public:
     static constexpr uint32_t kBlockSize = 4096;
     static constexpr uint32_t kBlockCount = 512;
 
-    static lfs_config* getConfig();
+    static lfs_config* GetConfig();
 };
 
 namespace PocketTrustee_LowLayer::w25q16 {

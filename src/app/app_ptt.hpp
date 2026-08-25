@@ -5,23 +5,28 @@
 #include "guiv2.hpp"
 #include "driver_usb.hpp"
 
-namespace PocketTrustee {
-    struct IDevice {
-        virtual ~IDevice() = default;
-        virtual void Initialize() = 0;
-        virtual std::string_view Name() const noexcept = 0;
+namespace PocketTrustee::Device {
+    struct IRtcDevice {
+        virtual ~IRtcDevice() = default;
+        virtual void SetCount(uint64_t unix_time) = 0;
+        virtual uint64_t GetCount() = 0;
     };
 
+    struct ITrng {
+        virtual ~ITrng() = default;
+        virtual uint32_t Gen() = 0;
+    };
+}
+
+namespace PocketTrustee {
     class App final {
         App(
             guiv2::Gui& gui,
             lfs_config* disk_,
-            DeviceUsb& usb_
-        ) :
-        Gui(gui), disk(disk_), usb(usb_) {
-            token_promises_.reserve(8);
-            DEBUG_INFO("App constructed");
-        }
+            DeviceUsb& usb_,
+            Device::IRtcDevice& rtc_,
+            Device::ITrng& rng_
+        );
 
     public:
         App(const App&) = delete;
@@ -35,9 +40,12 @@ namespace PocketTrustee {
         void DisposeActiveToken(const void * promise);
 
         guiv2::Gui& Gui;
-        lfs_t lfs{};
-        lfs_config* disk;
-        DeviceUsb& usb;
+        lfs_t Lfs{};
+        lfs_config* Disk;
+        DeviceUsb& Usb;
+
+        Device::IRtcDevice& Rtc;
+        Device::ITrng& Rng;
     private:
         std::vector<const void*> token_promises_;
     };

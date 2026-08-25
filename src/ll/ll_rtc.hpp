@@ -1,20 +1,19 @@
 #ifndef POCKETTRUSTEE_LL_RTC_HPP
 #define POCKETTRUSTEE_LL_RTC_HPP
 
-#include "driver_rtc.hpp"
+#include "app_ptt.hpp"
 
-class RtcLowLayer final : public IRtcLowLayer {
+class RtcLowLayer final : public PocketTrustee::Device::IRtcDevice {
+    RtcLowLayer();
+
 public:
-    static RtcLowLayer& getInstance();
+    static RtcLowLayer& GetInstance();
 
-    void ll_init() override;
-    void ll_reset() override;
-    int write_backup_ram(uint8_t offset, int value) override;
-    int read_backup_ram(uint8_t offset, int* p_value) override;
-    void set_time(PocketTrustee::DateTime dt) override;
-    PocketTrustee::DateTime get_time() override;
-private:
-    RtcLowLayer() = default;
+    RtcLowLayer(const RtcLowLayer&) = delete;
+    RtcLowLayer& operator=(const RtcLowLayer&) = delete;
+
+    void SetCount(uint64_t unix_time) override;
+    uint64_t GetCount() override;
 };
 
 #endif //POCKETTRUSTEE_LL_RTC_HPP

@@ -76,9 +76,9 @@ ShellSocket& ShellSocket::GetInstance() {
 }
 
 void ShellSocket::Start() {
-    DEBUG_ASSERT(!App.usb.HasDevice());
+    DEBUG_ASSERT(!App.Usb.HasDevice());
     App.TakeActiveToken(this);
-    App.usb.RegisterDevice(&UsbAcmDevice::GetInstance());
+    App.Usb.RegisterDevice(&UsbAcmDevice::GetInstance());
     shell_task_handle =
         xTaskCreateStatic(ShellMainThread, "shell", kShellStackSize, nullptr, 4, shell_stack, &shell_task_tcb);
     DEBUG_ASSERT(shell_task_handle != nullptr);
@@ -87,7 +87,7 @@ void ShellSocket::Start() {
 
 void ShellSocket::Stop() {
     vTaskDelete(shell_task_handle);
-    App.usb.PopCurrentDevice();
+    App.Usb.PopCurrentDevice();
     App.DisposeActiveToken(this);
     DEBUG_INFO("Shell stop");
 }

@@ -49,7 +49,7 @@ namespace {
     }
 } // namespace
 
-lfs_config* ExternalW25Q16::getConfig() {
+lfs_config* ExternalW25Q16::GetConfig() {
     static lfs_config w25q16_config = {
         .read = w25q16_read,
         .prog = w25q16_write,

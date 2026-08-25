@@ -1,24 +1,45 @@
 #include "app_ptt.hpp"
+// Inject low layer device here
 #include "ll_epaper.hpp"
 #include "ll_clock.hpp"
 #include "driver_w25q16.hpp"
+#include "ll_rtc.hpp"
+#include "ll_trng.hpp"
+
+PocketTrustee::App& PocketTrustee::App::InitOrGetApp() {
+    // Injetc gui with epaper
+    static guiv2::Gui gui{DeviceEpaper::getInstance()};
+    // Disk
+    static auto disk = ExternalW25Q16::GetConfig();
+    // Usb
+    static auto& usb = DeviceUsb::GetInstance();
+    // Rtc
+    static auto& rtc = RtcLowLayer::GetInstance();
+    // TRNG
+    static auto& rng = TrngLowLayer::GetInstance();
+    // Inject all device to app
+    static App app{
+        gui,
+        disk,
+        usb,
+        rtc,
+        rng
+    };
+    return app;
+}
 
 using namespace PocketTrustee;
 
-App& App::InitOrGetApp() {
-    static guiv2::Gui gui{DeviceEpaper::getInstance()};
-    static App app{
-        gui,
-        ExternalW25Q16::getConfig(),
-        DeviceUsb::GetInstance()
-    };
-    if (lfs_mount(&app.lfs, app.disk) != LFS_ERR_OK &&
-        lfs_format(&app.lfs, app.disk) != LFS_ERR_OK &&
-        lfs_mount(&app.lfs, app.disk) != LFS_ERR_OK) {
+App::App(guiv2::Gui& gui, lfs_config* disk_, DeviceUsb& usb_, Device::IRtcDevice& rtc_, Device::ITrng& rng_) :
+    Gui(gui), Disk(disk_), Usb(usb_), Rtc(rtc_), Rng(rng_) {
+    if (lfs_mount(&Lfs, Disk) != LFS_ERR_OK &&
+        lfs_format(&Lfs, Disk) != LFS_ERR_OK &&
+        lfs_mount(&Lfs, Disk) != LFS_ERR_OK) {
         DEBUG_ERROR("Fail to mount disk");
         Error_Handler();
     }
-    return app;
+    token_promises_.reserve(8);
+    DEBUG_INFO("App constructed");
 }
 
 void App::TakeActiveToken(const void* promise) {

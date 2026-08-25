@@ -15,7 +15,7 @@ HomeWindow::HomeWindow(Gui& host, PocketTrustee::App& app) :
 }
 
 void HomeWindow::OnCreate() {
-    PocketTrustee::LfsFileGuard file{&app_.lfs};
+    PocketTrustee::LfsFileGuard file{&app_.Lfs};
     if (file.open(ResPath.data(), LFS_O_RDONLY) != LFS_ERR_OK) {
         DEBUG_ERROR("failed to open /gui/home");
         return;
