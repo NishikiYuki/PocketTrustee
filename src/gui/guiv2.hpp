@@ -330,13 +330,12 @@ namespace guiv2 {
         MonoBitMap frameBuffer_;
         std::vector<std::unique_ptr<Window>> windows_;
         SmallQueue<std::move_only_function<void ()>, 8> pendingQueue_;
-        UiEvent pendingEvent_;
+        SmallQueue<UiEvent, 8> pendingEvent_;
 
         TaskHandle_t mainTaskHandle_{};
 
         bool dirty_{};
         bool mark_as_strong_{};
-        volatile bool gui_busy_{};
     };
 }
 

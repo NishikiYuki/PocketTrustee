@@ -412,9 +412,9 @@ void Gui::Close(Window& window) {
 }
 
 void Gui::PostEvent(const UiEvent& event) {
-    if (gui_busy_ || mainTaskHandle_ == nullptr)
+    if (pendingEvent_.full() || mainTaskHandle_ == nullptr)
         return;
-    pendingEvent_ = event;
+    pendingEvent_.push(event);
     xTaskNotifyFromISR(mainTaskHandle_, 0, eIncrement, nullptr);
 }
 
@@ -422,17 +422,18 @@ void Gui::Start(void*) {
     mainTaskHandle_ = xTaskGetCurrentTaskHandle();
     DEBUG_ASSERT(mainTaskHandle_ != nullptr);
     DEBUG_INFO("Gui start");
+    pendingEvent_.push(UiEvent::BasicNull);
     for (;;) {
-        if (auto focus = FocusedWindow()) {
-            focus->OnEvent(pendingEvent_);
+        xTaskNotifyStateClear(mainTaskHandle_);
+        if (pendingEvent_.empty()) {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         }
-        pendingEvent_ = UiEvent::BasicNull;
+        auto event = pendingEvent_.pop();
+        if (auto focus = FocusedWindow()) {
+            focus->OnEvent(event.value_or(UiEvent::BasicNull));
+        }
         ApplyPendingOperations();
         RenderIfNeeded();
-        gui_busy_ = false;
-        xTaskNotifyStateClear(mainTaskHandle_);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        gui_busy_ = true;
     }
 }
 
