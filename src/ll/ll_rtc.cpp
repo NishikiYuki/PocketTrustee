@@ -1,6 +1,8 @@
 #include "ll_rtc.hpp"
 #include "rtc.h"
 
+#include <ctime>
+
 using namespace PocketTrustee;
 
 namespace {
@@ -39,7 +41,7 @@ namespace {
     //     HAL_PWR_DisableBkUpAccess();
     //     return 0;
     // }
-}
+} // namespace
 
 RtcLowLayer::RtcLowLayer() {
     ll_init();
@@ -73,7 +75,7 @@ void RtcLowLayer::SetCount(uint64_t unix_time) {
 }
 
 uint64_t RtcLowLayer::GetCount() {
-    DateTime dt {};
+    DateTime dt{};
     dt.year = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_DATE_GetYear(RTC)) + 2000;
     dt.month = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_DATE_GetMonth(RTC));
     dt.day = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_DATE_GetDay(RTC));
@@ -81,4 +83,12 @@ uint64_t RtcLowLayer::GetCount() {
     dt.minute = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_TIME_GetMinute(RTC));
     dt.second = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_TIME_GetSecond(RTC));
     return dt.ToUnixTime();
+}
+
+extern "C" time_t osRtcTime(time_t* time) {
+    const auto current = static_cast<time_t>(RtcLowLayer::GetInstance().GetCount());
+    if (time != nullptr) {
+        *time = current;
+    }
+    return current;
 }
