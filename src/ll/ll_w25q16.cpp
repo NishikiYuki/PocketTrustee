@@ -3,14 +3,16 @@
 
 namespace {
     constexpr SPI_HandleTypeDef* kSPI = &hspi1;
+    constexpr uint32_t kSpiReadyTimeout = 1000;
     constexpr uint32_t kW25q16ReadyTimeout = 2000;
 
     void poll_for_spi_ready() {
-        uint16_t timeout = 1000;
-        while (kSPI->State != HAL_SPI_STATE_READY && timeout) {
-            // TODO: find out a way that only force task reschedule while keeping timeout function work
-            HAL_Delay(1);
-            --timeout;
+        const uint32_t start = HAL_GetTick();
+        while (kSPI->State != HAL_SPI_STATE_READY) {
+            if ((HAL_GetTick() - start) >= kSpiReadyTimeout) {
+                return;
+            }
+            HAL_Delay(0);
         }
     }
 
@@ -110,7 +112,7 @@ namespace PocketTrustee_LowLayer::w25q16 {
             if ((HAL_GetTick() - start) >= kW25q16ReadyTimeout) {
                 return false;
             }
-            HAL_Delay(1);
+            HAL_Delay(0);
         }
         return true;
     }

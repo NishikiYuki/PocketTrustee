@@ -6,6 +6,8 @@ namespace {
     constexpr uint32_t kEpdWidth = 296;
     constexpr uint32_t kEpdHeight = 128;
     constexpr uint32_t kEpdArraySize = 4736;
+    constexpr uint32_t kSpiReadyTimeout = 1000;
+    constexpr uint32_t kEpaperReadyTimeout = 3000;
 
     void transmit_data(const uint8_t* data, const uint16_t len) {
         DDC_GPIO_Port->BSRR = DDC_Pin;
@@ -27,18 +29,22 @@ namespace {
     }
 
     void poll_for_spi_ready() {
-        uint16_t timeout = 1000;
-        while (kSPI->State != HAL_SPI_STATE_READY && timeout) {
-            HAL_Delay(1);
-            --timeout;
+        const uint32_t start = HAL_GetTick();
+        while (kSPI->State != HAL_SPI_STATE_READY) {
+            if ((HAL_GetTick() - start) >= kSpiReadyTimeout) {
+                return;
+            }
+            HAL_Delay(0);
         }
     }
 
     void poll_for_epaper_ready() {
-        uint16_t timeout = 3000;
-        while ((DBUSY_GPIO_Port->IDR & DBUSY_Pin) && timeout) {
-            HAL_Delay(1);
-            --timeout;
+        const uint32_t start = HAL_GetTick();
+        while (DBUSY_GPIO_Port->IDR & DBUSY_Pin) {
+            if ((HAL_GetTick() - start) >= kEpaperReadyTimeout) {
+                return;
+            }
+            HAL_Delay(0);
         }
     }
 
@@ -165,17 +171,17 @@ namespace {
         DAT(0x02);
         // X Start End
         CMD(0x44);
-        DAT(kEpdHeight/8-1);
+        DAT(kEpdHeight / 8 - 1);
         DAT(0x00);
         // Y Start End
         CMD(0x45);
         DAT(0x00);
         DAT(0x00);
-        DAT((kEpdWidth-1)%256);
-        DAT((kEpdWidth-1)/256);
+        DAT((kEpdWidth - 1) % 256);
+        DAT((kEpdWidth - 1) / 256);
         // Reset X address
         CMD(0x4E);
-        DAT(kEpdHeight/8-1);
+        DAT(kEpdHeight / 8 - 1);
         // Reset Y address
         CMD(0x4F);
         DAT(0x00);
