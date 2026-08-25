@@ -194,6 +194,11 @@ namespace guiv2 {
     };
 
     struct WindowRect {
+        constexpr WindowRect(const Point2u& origin, const size_t width, const size_t height) :
+            origin(origin), width(width), height(height) {
+        }
+        constexpr WindowRect() = default;
+
         Point2u origin{};
         size_t width{};
         size_t height{};

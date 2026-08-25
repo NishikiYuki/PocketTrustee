@@ -10,11 +10,13 @@ namespace guiv2::extension {
         static FontFamily& LoadOrGetFontFamily();
     };
 
-    class ButtonControl final : public Control {
+    class ClickArea : public Control {
     public:
-        ButtonControl(const WindowRect& rect, std::string_view text, std::move_only_function<void()> click) :
-            Rect(rect), Text(text), OnClick(std::move(click)) {
+        ClickArea(const WindowRect& rect, std::move_only_function<void()> click) :
+            Rect(rect), OnClick(std::move(click)) {
         }
+
+        ClickArea() = default;
 
         bool IsFocusable() const override { return true; }
 
@@ -23,12 +25,25 @@ namespace guiv2::extension {
         void OnFocusChanged(bool focused, Window& parent) override { focused_ = focused; }
 
         WindowRect Rect;
-        std::string_view Text;
-        std::move_only_function<void ()> OnClick;
+        std::move_only_function<void()> OnClick;
         uint8_t Border = 0;
+        uint8_t BorderOnFocus = 1;
 
     protected:
         bool focused_ = false;
+    };
+
+    class Button final : public ClickArea {
+    public:
+        Button(const WindowRect& rect, std::string_view text, std::move_only_function<void()> click) :
+            ClickArea(rect, std::move(click)), Text(text) {
+        }
+
+        Button() = default;
+
+        void OnRender(Scheme& window, Window& parent) override;
+
+        std::string_view Text;
     };
 
     class OptionWindow final : public Window {
@@ -46,17 +61,15 @@ namespace guiv2::extension {
             len *= 8;
             len = (rect_.width - len) / 3;
             btn1.Rect = {
-                .origin = Point2u{len, rect_.height - 24},
-                .width = option1.size() * 8 + 4,
-                .height = 12
+                Point2u{len, rect_.height - 24},
+                option1.size() * 8 + 4,
+                12
             };
             btn2.Rect = {
-                .origin = Point2u{2 * len + btn1.Rect.width, rect_.height - 24},
-                .width = option2.size() * 8 + 4,
-                .height = 12
+                Point2u{2 * len + btn1.Rect.width, rect_.height - 24},
+                option2.size() * 8 + 4,
+                12
             };
-            control_array[0] = &btn1;
-            control_array[1] = &btn2;
             SetControls(control_array);
         }
 
@@ -67,8 +80,8 @@ namespace guiv2::extension {
     protected:
         void OnRender(Scheme& scheme) override;
 
-        ButtonControl btn1, btn2;
-        Control* control_array[2]{};
+        Button btn1, btn2;
+        Control* control_array[2]{&btn1, &btn2};
 
         void CallbackForward(int n) {
             if (Callback) Callback(n);

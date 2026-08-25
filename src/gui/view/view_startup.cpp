@@ -3,7 +3,7 @@
 #include "gui_extension.hpp"
 #include "app_ptt.hpp"
 
-using namespace ViewStartup;
+using namespace guiv2::View::Startup;
 
 namespace {
     constexpr uint8_t startup_font[] = {
@@ -68,6 +68,15 @@ namespace {
     };
 }
 
+StartupWindow::StartupWindow(Gui& host) : Window(host) {
+    rect_.width = host.Width();
+    rect_.height = host.Height();
+}
+
+void StartupWindow::OnCreate() {
+    host_.Invalidate(true);
+}
+
 void StartupWindow::OnRender(Scheme& scheme) {
     constexpr Point2u origin = Point2u::CenterOrientedOrigin(13 * 16, 32, {296 / 2, 64});
     for (uint8_t i = 0; i < 13; i++) {
@@ -83,9 +92,9 @@ void StartupWindow::OnRender(Scheme& scheme) {
 void StartupWindow::OnEvent(const UiEvent& event) {
     if (event.bEvent == UiEvent::BasicEnter) {
         WindowRect rect = {
-            .origin = Point2u::CenterOrientedOrigin(128, 96, {rect_.width / 2, rect_.height / 2}),
-            .width = 128,
-            .height = 96,
+            Point2u::CenterOrientedOrigin(128, 96, {rect_.width / 2, rect_.height / 2}),
+            128,
+            96,
         };
         auto callback = [this, rect](int n) {
             std::string_view t;
