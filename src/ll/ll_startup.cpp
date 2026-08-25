@@ -1,8 +1,8 @@
-#include "main.h"
 #include "FreeRTOS.h"
-#include "task.h"
 #include "app_ptt.hpp"
 #include "app_shell.hpp"
+#include "main.h"
+#include "task.h"
 #include "view_home.hpp"
 #include "view_startup.hpp"
 
@@ -16,9 +16,7 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName);
 void vApplicationMallocFailedHook(void);
 }
 
-void HAL_Delay(uint32_t Delay) {
-    vTaskDelay(Delay);
-}
+void HAL_Delay(uint32_t Delay) { vTaskDelay(Delay); }
 
 void StartDefaultTask(void const*) {
     DEBUG_INFO("RTOS Entrance");
@@ -42,16 +40,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     // else {
     switch (GPIO_Pin) {
     case KUP_Pin:
-        if (KUP_GPIO_Port->IDR & KUP_Pin) break;
-        app_->Gui.PostEvent(guiv2::UiEvent::BasicUp);
+        if (KUP_GPIO_Port->IDR & KUP_Pin)
+            break;
+        app_->Gui.PostEventFromISR(guiv2::UiEvent::BasicUp);
         break;
     case KDN_Pin:
-        if (KDN_GPIO_Port->IDR & KDN_Pin) break;
-        app_->Gui.PostEvent(guiv2::UiEvent::BasicDown);
+        if (KDN_GPIO_Port->IDR & KDN_Pin)
+            break;
+        app_->Gui.PostEventFromISR(guiv2::UiEvent::BasicDown);
         break;
     case KEN_Pin:
-        if (KEN_GPIO_Port->IDR & KEN_Pin) break;
-        app_->Gui.PostEvent(guiv2::UiEvent::BasicEnter);
+        if (KEN_GPIO_Port->IDR & KEN_Pin)
+            break;
+        app_->Gui.PostEventFromISR(guiv2::UiEvent::BasicEnter);
         break;
     default:
         break;

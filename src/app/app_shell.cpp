@@ -27,10 +27,16 @@ namespace {
     void ShellMainThread(void*) {
         auto& shell = ShellSocket::GetInstance();
         auto& port = UsbAcmDevice::GetInstance();
-        port.RegisterNewMessageHandler([](uint16_t) { vTaskNotifyGiveFromISR(shell_task_handle, nullptr); });
+        port.RegisterNewMessageHandler([](uint16_t) {
+            BaseType_t higherPriorityTaskWoken = pdFALSE;
+            vTaskNotifyGiveFromISR(shell_task_handle, &higherPriorityTaskWoken);
+            portYIELD_FROM_ISR(higherPriorityTaskWoken);
+        });
         for (;;) {
+            taskENTER_CRITICAL();
             port.Clear();
             xTaskNotifyStateClear(shell_task_handle);
+            taskEXIT_CRITICAL();
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             auto nread = port.Read(shell.RxBuffer, sizeof(shell.RxBuffer));
             DEBUG_INFO("Received %u", nread);
@@ -62,7 +68,7 @@ namespace {
             currentCommand = nullptr;
         }
     }
-}
+} // namespace
 
 ShellSocket& ShellSocket::GetInstance() {
     static ShellSocket instance{PocketTrustee::App::InitOrGetApp(), UsbAcmDevice::GetInstance()};
@@ -86,7 +92,4 @@ void ShellSocket::Stop() {
     DEBUG_INFO("Shell stop");
 }
 
-void ShellSocket::WaitForResponse(uint32_t timeout) {
-    xTaskNotifyStateClear(shell_task_handle);
-    ulTaskNotifyTake(pdTRUE, timeout);
-}
+void ShellSocket::WaitForResponse(uint32_t timeout) { ulTaskNotifyTake(pdTRUE, timeout); }

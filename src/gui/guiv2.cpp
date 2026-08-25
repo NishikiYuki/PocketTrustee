@@ -57,7 +57,7 @@ namespace {
         i += len;
         return cp;
     }
-}
+} // namespace
 
 uint8_t ReadonlyMonoBitMap::operator[](Point2u pos) const {
     size_t bit = pos.x * height_ + pos.y;
@@ -65,18 +65,14 @@ uint8_t ReadonlyMonoBitMap::operator[](Point2u pos) const {
     return !!(pBuffer_[idx] & (static_cast<uint8_t>(0x80) >> (bit % 8)));
 }
 
-MonoBitMap::MonoBitMap(uint16_t w, uint16_t h) :
-    ReadonlyMonoBitMap(w, h, nullptr),
-    own_buffer_(true) {
+MonoBitMap::MonoBitMap(uint16_t w, uint16_t h) : ReadonlyMonoBitMap(w, h, nullptr), own_buffer_(true) {
     pBuffer_ = new uint8_t[bufferSize_];
     ReadonlyMonoBitMap::pBuffer_ = pBuffer_;
     std::fill_n(pBuffer_, bufferSize_, 0xFF);
 }
 
 MonoBitMap::MonoBitMap(uint16_t w, uint16_t h, uint8_t* pBuffer) :
-    ReadonlyMonoBitMap(w, h, pBuffer),
-    own_buffer_(false),
-    pBuffer_(pBuffer) {
+    ReadonlyMonoBitMap(w, h, pBuffer), own_buffer_(false), pBuffer_(pBuffer) {
     std::fill_n(pBuffer_, bufferSize_, 0xFF);
 }
 
@@ -102,9 +98,7 @@ MonoBitMap& MonoBitMap::Clear() {
     return *this;
 }
 
-Scheme::Scheme(MonoBitMap& map) :
-    map_(map), origin_({}), width_(map.Width()), height_(map.Height()) {
-}
+Scheme::Scheme(MonoBitMap& map) : map_(map), origin_({}), width_(map.Width()), height_(map.Height()) {}
 
 Scheme::Scheme(MonoBitMap& map, Point2u origin, size_t width, size_t height) :
     map_(map), origin_(origin), width_(width), height_(height) {
@@ -137,8 +131,7 @@ Scheme& Scheme::Line(Point2u pos1, Point2u pos2, uint8_t value) {
     const int sy = (y0 < y1) ? 1 : -1;
     int err = dx - dy;
     for (;;) {
-        if (x0 >= 0 && y0 >= 0 &&
-            static_cast<size_t>(x0) < width_ && static_cast<size_t>(y0) < height_)
+        if (x0 >= 0 && y0 >= 0 && static_cast<size_t>(x0) < width_ && static_cast<size_t>(y0) < height_)
             Point({static_cast<size_t>(x0), static_cast<size_t>(y0)}, value);
         if (x0 == x1 && y0 == y1)
             break;
@@ -167,12 +160,7 @@ Scheme& Scheme::Border(Point2u pos1, Point2u pos2, uint8_t value, uint8_t thickn
 }
 
 Scheme& Scheme::Border(uint8_t thickness) {
-    return Border(
-        {0, 0},
-        {width_, height_},
-        static_cast<uint8_t>(EpdColor::kBlack),
-        thickness
-    );
+    return Border({0, 0}, {width_, height_}, static_cast<uint8_t>(EpdColor::kBlack), thickness);
 }
 
 Scheme& Scheme::Invert(Point2u pos1, Point2u pos2) {
@@ -197,8 +185,7 @@ Scheme& Scheme::PasteFrom(const Scheme& src, Point2u pos) {
     // 行完全重合时还需处理行内 x 方向的重叠
     const bool sameMap = (&src.map_ == &map_);
     const bool destBelow = sameMap && (origin_.y + pos.y > src.origin_.y);
-    const bool destRight = sameMap && (origin_.y + pos.y == src.origin_.y) &&
-        (origin_.x + pos.x > src.origin_.x);
+    const bool destRight = sameMap && (origin_.y + pos.y == src.origin_.y) && (origin_.x + pos.x > src.origin_.x);
 
     auto copyRow = [&](size_t y, bool reversed) {
         if (reversed)
@@ -307,8 +294,8 @@ void Window::SetControls(std::span<Control* const> controls) {
 }
 
 bool Window::SetFocusedControl(size_t index) {
-    if (index >= controls_.size() || controls_[index] == nullptr ||
-        !controls_[index]->IsFocusable() || index == focused_control_)
+    if (index >= controls_.size() || controls_[index] == nullptr || !controls_[index]->IsFocusable() ||
+        index == focused_control_)
         return false;
 
     if (auto* old = FocusedControl(); old != nullptr)
@@ -330,9 +317,7 @@ bool Window::MoveControlFocus(int direction) {
         index = forward ? controls_.size() - 1 : 0;
 
     for (size_t count = 0; count < controls_.size(); ++count) {
-        index = forward
-                    ? (index + 1) % controls_.size()
-                    : (index + controls_.size() - 1) % controls_.size();
+        index = forward ? (index + 1) % controls_.size() : (index + controls_.size() - 1) % controls_.size();
         if (controls_[index] != nullptr && controls_[index]->IsFocusable())
             return SetFocusedControl(index);
     }
@@ -355,8 +340,7 @@ void Window::OnRender(Scheme& scheme) {
 }
 
 void Window::OnEvent(const UiEvent& event) {
-    if (auto* control = FocusedControl(); control != nullptr &&
-        control->OnEvent(event, *this))
+    if (auto* control = FocusedControl(); control != nullptr && control->OnEvent(event, *this))
         return;
 
     if (event.bEvent == UiEvent::BasicUp) {
@@ -367,22 +351,17 @@ void Window::OnEvent(const UiEvent& event) {
     }
 }
 
-void Window::Invalidate() {
-    host_.Invalidate();
-}
+void Window::Invalidate() { host_.Invalidate(); }
 
-void Window::Close() {
-    host_.Close(*this);
-}
+void Window::Close() { host_.Close(*this); }
 
-void Window::OpenWindow(std::unique_ptr<Window> window) {
-    host_.OpenWindow(std::move(window));
-}
+void Window::OpenWindow(std::unique_ptr<Window> window) { host_.OpenWindow(std::move(window)); }
 
-Gui::Gui(IDisplay& display) :
-    display_(display),
-    frameBuffer_(display.getWidth(), display.getHeight()) {
+Gui::Gui(IDisplay& display) : display_(display), frameBuffer_(display.getWidth(), display.getHeight()) {
     windows_.reserve(4);
+    pendingEventQueue_ = xQueueCreateStatic(kPendingEventCapacity, sizeof(UiEvent), pendingEventStorage_.data(),
+                                            &pendingEventControlBlock_);
+    DEBUG_ASSERT(pendingEventQueue_ != nullptr);
     DEBUG_INFO("Gui constructed");
 }
 
@@ -398,10 +377,8 @@ void Gui::OpenWindow(std::unique_ptr<Window> window) {
 
 void Gui::Close(Window& window) {
     pendingQueue_.push([this, target = &window] {
-        auto it = std::ranges::find_if(windows_,
-                                       [target](const std::unique_ptr<Window>& wn) {
-                                           return wn.get() == target;
-                                       });
+        auto it =
+            std::ranges::find_if(windows_, [target](const std::unique_ptr<Window>& wn) { return wn.get() == target; });
         if (it == windows_.end())
             return;
         auto wn = std::move(*it);
@@ -411,26 +388,22 @@ void Gui::Close(Window& window) {
     });
 }
 
-void Gui::PostEvent(const UiEvent& event) {
-    if (pendingEvent_.full() || mainTaskHandle_ == nullptr)
-        return;
-    pendingEvent_.push(event);
-    xTaskNotifyFromISR(mainTaskHandle_, 0, eIncrement, nullptr);
+void Gui::PostEventFromISR(const UiEvent& event) {
+    BaseType_t higherPriorityTaskWoken = pdFALSE;
+    if (xQueueSendFromISR(pendingEventQueue_, &event, &higherPriorityTaskWoken) == pdPASS) {
+        portYIELD_FROM_ISR(higherPriorityTaskWoken);
+    }
 }
 
 void Gui::Start(void*) {
-    mainTaskHandle_ = xTaskGetCurrentTaskHandle();
-    DEBUG_ASSERT(mainTaskHandle_ != nullptr);
     DEBUG_INFO("Gui start");
-    pendingEvent_.push(UiEvent::BasicNull);
+    UiEvent event{UiEvent::BasicNull};
+    (void)xQueueSend(pendingEventQueue_, &event, 0);
     for (;;) {
-        xTaskNotifyStateClear(mainTaskHandle_);
-        if (pendingEvent_.empty()) {
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        }
-        auto event = pendingEvent_.pop();
+        if (xQueueReceive(pendingEventQueue_, &event, portMAX_DELAY) != pdPASS)
+            continue;
         if (auto focus = FocusedWindow()) {
-            focus->OnEvent(event.value_or(UiEvent::BasicNull));
+            focus->OnEvent(event);
         }
         ApplyPendingOperations();
         RenderIfNeeded();
@@ -438,17 +411,14 @@ void Gui::Start(void*) {
 }
 
 void Gui::Invalidate(bool mark_as_strong) {
-    if (mark_as_strong) mark_as_strong_ = true;
+    if (mark_as_strong)
+        mark_as_strong_ = true;
     dirty_ = true;
 }
 
-Window* Gui::FocusedWindow() {
-    return windows_.empty() ? nullptr : windows_.back().get();
-}
+Window* Gui::FocusedWindow() { return windows_.empty() ? nullptr : windows_.back().get(); }
 
-const Window* Gui::FocusedWindow() const {
-    return windows_.empty() ? nullptr : windows_.back().get();
-}
+const Window* Gui::FocusedWindow() const { return windows_.empty() ? nullptr : windows_.back().get(); }
 
 void Gui::ApplyPendingOperations() {
     while (!pendingQueue_.empty()) {

@@ -1,8 +1,10 @@
 #include "usb_imp_acm.hpp"
-#include "usbd_core.h"
-#include "usbd_cdc_acm.h"
-#include "simple_buffer.hpp"
+#include "FreeRTOS.h"
 #include "main.h"
+#include "simple_buffer.hpp"
+#include "task.h"
+#include "usbd_cdc_acm.h"
+#include "usbd_core.h"
 
 namespace {
     constexpr uint8_t kEndpoint_IN = 0x01 | 0x80;
@@ -18,10 +20,11 @@ namespace {
     constexpr uint16_t kRingBufferSize = 256;
 
     __aligned(4) uint8_t read_buffer[kCdcMaxMps];
-    uint8_t rx_ringbuffer_region[kRingBufferSize];
+    uint8_t rx_ringbuffer_region[kRingBufferSize + 1];
     StaticRingBuffer rx_ringbuffer{rx_ringbuffer_region, sizeof(rx_ringbuffer_region)};
+    bool rx_message_overflow = false;
 
-    std::move_only_function<void (uint16_t)> rx_new_message_handler;
+    std::move_only_function<void(uint16_t)> rx_new_message_handler;
 
     volatile bool ep_tx_busy_flag = false;
 
@@ -43,11 +46,23 @@ namespace {
     }
 
     void ep_out_callback(uint8_t busid, uint8_t ep, uint32_t nbytes) {
-        bool eof = nbytes != kCdcMaxMps;
-        rx_ringbuffer.write(read_buffer, nbytes, eof);
+        const bool eof = nbytes != kCdcMaxMps;
+        bool message_completed = false;
+        uint16_t message_size = 0;
+
+        const UBaseType_t interruptMask = taskENTER_CRITICAL_FROM_ISR();
+        if (rx_ringbuffer.write(read_buffer, nbytes, eof) != nbytes) {
+            rx_message_overflow = true;
+        }
+        if (eof) {
+            message_size = rx_ringbuffer.get_used();
+            message_completed = message_size != 0 || rx_message_overflow;
+        }
+        taskEXIT_CRITICAL_FROM_ISR(interruptMask);
+
         usbd_ep_start_read(busid, kEndpoint_OUT, read_buffer, kCdcMaxMps);
-        if (eof && rx_new_message_handler && nbytes) {
-            rx_new_message_handler(rx_ringbuffer.get_used());
+        if (message_completed && rx_new_message_handler) {
+            rx_new_message_handler(message_size);
         }
     }
 
@@ -55,39 +70,21 @@ namespace {
     usbd_endpoint ep_in{}, ep_out{};
 
     constexpr uint8_t device_descriptor[] = {
-        USB_DEVICE_DESCRIPTOR_INIT(USB_2_0, 0xEF, 0x02, 0x01, kUsbVID, kUsbPID, 0x0100, 0x01)
-    };
+        USB_DEVICE_DESCRIPTOR_INIT(USB_2_0, 0xEF, 0x02, 0x01, kUsbVID, kUsbPID, 0x0100, 0x01)};
 
-    constexpr const uint8_t* device_descriptor_callback(uint8_t speed) {
-
-        return device_descriptor;
-    }
+    constexpr const uint8_t* device_descriptor_callback(uint8_t speed) { return device_descriptor; }
 
     constexpr uint8_t config_descriptor[] = {
         USB_CONFIG_DESCRIPTOR_INIT(kUsbConfigSize, 0x02, 0x01, USB_CONFIG_BUS_POWERED, 100),
-        CDC_ACM_DESCRIPTOR_INIT(0x00, kEndpoint_INT, kEndpoint_OUT, kEndpoint_IN, kCdcMaxMps, 0x02)
-    };
+        CDC_ACM_DESCRIPTOR_INIT(0x00, kEndpoint_INT, kEndpoint_OUT, kEndpoint_IN, kCdcMaxMps, 0x02)};
 
-    constexpr const uint8_t* config_descriptor_callback(uint8_t speed) {
-        return config_descriptor;
-    }
+    constexpr const uint8_t* config_descriptor_callback(uint8_t speed) { return config_descriptor; }
 
     constexpr uint8_t device_quality_descriptor[] = {
-        0x0a,
-        USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER,
-        0x00,
-        0x02,
-        0x00,
-        0x00,
-        0x00,
-        0x40,
-        0x00,
-        0x00,
+        0x0a, USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER, 0x00, 0x02, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00,
     };
 
-    constexpr const uint8_t* device_quality_descriptor_callback(uint8_t speed) {
-        return device_quality_descriptor;
-    }
+    constexpr const uint8_t* device_quality_descriptor_callback(uint8_t speed) { return device_quality_descriptor; }
 
     const char* string_descriptors[] = {
         (const char[]){0x09, 0x04},
@@ -103,13 +100,11 @@ namespace {
         return string_descriptors[index];
     }
 
-    constexpr usb_descriptor cdc_descriptor = {
-        .device_descriptor_callback = device_descriptor_callback,
-        .config_descriptor_callback = config_descriptor_callback,
-        .device_quality_descriptor_callback = device_quality_descriptor_callback,
-        .string_descriptor_callback = string_descriptor_callback
-    };
-}
+    constexpr usb_descriptor cdc_descriptor = {.device_descriptor_callback = device_descriptor_callback,
+                                               .config_descriptor_callback = config_descriptor_callback,
+                                               .device_quality_descriptor_callback = device_quality_descriptor_callback,
+                                               .string_descriptor_callback = string_descriptor_callback};
+} // namespace
 
 UsbAcmDevice& UsbAcmDevice::GetInstance() {
     static UsbAcmDevice instance;
@@ -139,11 +134,21 @@ void UsbAcmDevice::Config() {
 }
 
 void UsbAcmDevice::Clear() {
+    taskENTER_CRITICAL();
     rx_ringbuffer.clear();
+    rx_message_overflow = false;
+    taskEXIT_CRITICAL();
 }
 
 uint16_t UsbAcmDevice::Read(uint8_t* buffer, uint16_t size) {
-    return rx_ringbuffer.read(buffer, size);
+    taskENTER_CRITICAL();
+    const uint16_t read = rx_message_overflow ? 0 : rx_ringbuffer.read(buffer, size);
+    if (rx_message_overflow) {
+        rx_ringbuffer.clear();
+        rx_message_overflow = false;
+    }
+    taskEXIT_CRITICAL();
+    return read;
 }
 
 uint16_t UsbAcmDevice::Write(std::span<const uint8_t> buffer) {
@@ -161,6 +166,4 @@ uint16_t UsbAcmDevice::Write(std::span<const uint8_t> buffer) {
     return buffer.size();
 }
 
-void UsbAcmDevice::RegisterNewMessageHandler(NewMessageHandler f) {
-    rx_new_message_handler = std::move(f);
-}
+void UsbAcmDevice::RegisterNewMessageHandler(NewMessageHandler f) { rx_new_message_handler = std::move(f); }

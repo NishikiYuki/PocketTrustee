@@ -1,15 +1,17 @@
 #ifndef POCKETTRUSTEE_GUIV2_HPP
 #define POCKETTRUSTEE_GUIV2_HPP
 
-#include "common_log.h"
+#include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <small_queue.hpp>
 #include <span>
 #include <string_view>
 #include <vector>
-#include <functional>
-#include <small_queue.hpp>
 #include "FreeRTOS.h"
+#include "common_log.h"
+#include "queue.h"
 #include "task.h"
 
 namespace guiv2 {
@@ -17,17 +19,13 @@ namespace guiv2 {
     using pointer = T*;
 
     struct Point2u {
-        constexpr Point2u(size_t x, size_t y) : x(x), y(y) {
-        }
+        constexpr Point2u(size_t x, size_t y) : x(x), y(y) {}
 
-        constexpr Point2u() : x(0), y(0) {
-        }
+        constexpr Point2u() : x(0), y(0) {}
 
         size_t x, y;
 
-        Point2u operator+(const Point2u& other) const {
-            return {x + other.x, y + other.y};
-        }
+        Point2u operator+(const Point2u& other) const { return {x + other.x, y + other.y}; }
 
         Point2u& operator+=(const Point2u& other) {
             x += other.x;
@@ -35,17 +33,11 @@ namespace guiv2 {
             return *this;
         }
 
-        bool operator==(const Point2u& other) const {
-            return x == other.x && y == other.y;
-        }
+        bool operator==(const Point2u& other) const { return x == other.x && y == other.y; }
 
-        bool operator>(const Point2u& other) const {
-            return x > other.x || y > other.y;
-        }
+        bool operator>(const Point2u& other) const { return x > other.x || y > other.y; }
 
-        bool operator<(const Point2u& other) const {
-            return x < other.x && y < other.y;
-        }
+        bool operator<(const Point2u& other) const { return x < other.x && y < other.y; }
 
         static constexpr Point2u Center(const Point2u& a, const Point2u& b) {
             return {(a.x + b.x) / 2, (a.y + b.y) / 2};
@@ -67,12 +59,10 @@ namespace guiv2 {
     class ReadonlyMonoBitMap {
     public:
         constexpr ReadonlyMonoBitMap(uint16_t w, uint16_t h, const uint8_t* pBuffer) :
-            width_(w), height_(h), pBuffer_(pBuffer), bufferSize_((width_ * height_ + 7) / 8) {
-        }
+            width_(w), height_(h), pBuffer_(pBuffer), bufferSize_((width_ * height_ + 7) / 8) {}
 
         constexpr ReadonlyMonoBitMap(uint16_t w, uint16_t h, std::span<const uint8_t> pBuffer) :
-            width_(w), height_(h), pBuffer_(pBuffer.data()), bufferSize_(pBuffer.size()) {
-        }
+            width_(w), height_(h), pBuffer_(pBuffer.data()), bufferSize_(pBuffer.size()) {}
 
         uint8_t operator[](Point2u pos) const;
         std::span<const uint8_t> getBuffer() const { return {pBuffer_, bufferSize_}; }
@@ -180,23 +170,16 @@ namespace guiv2 {
 
     class UiEvent {
     public:
-        enum BasicEvent {
-            BasicUp = -1,
-            BasicNull,
-            BasicDown,
-            BasicEnter
-        };
+        enum BasicEvent { BasicUp = -1, BasicNull, BasicDown, BasicEnter };
 
-        constexpr UiEvent(BasicEvent event = BasicNull) : bEvent(event) {
-        }
+        constexpr UiEvent(BasicEvent event = BasicNull) : bEvent(event) {}
 
         BasicEvent bEvent;
     };
 
     struct WindowRect {
         constexpr WindowRect(const Point2u& origin, const size_t width, const size_t height) :
-            origin(origin), width(width), height(height) {
-        }
+            origin(origin), width(width), height(height) {}
         constexpr WindowRect() = default;
 
         Point2u origin{};
@@ -220,8 +203,7 @@ namespace guiv2 {
          * @param window 父窗口画板
          * @param parent Parent
          */
-        virtual void OnRender(Scheme& window, Window& parent) {
-        }
+        virtual void OnRender(Scheme& window, Window& parent) {}
 
         /**
          * @brief 当事件被送往控件时触发
@@ -236,17 +218,14 @@ namespace guiv2 {
          * @param focused 自己是否被选中
          * @param parent 父窗口
          */
-        virtual void OnFocusChanged(bool focused, Window& parent) {
-        }
+        virtual void OnFocusChanged(bool focused, Window& parent) {}
     };
 
     class Window {
     public:
-        explicit Window(Gui& host, const WindowRect& rect) : host_(host), rect_(rect) {
-        }
+        explicit Window(Gui& host, const WindowRect& rect) : host_(host), rect_(rect) {}
 
-        explicit Window(Gui& host) : host_(host) {
-        }
+        explicit Window(Gui& host) : host_(host) {}
 
         virtual ~Window() = default;
 
@@ -270,8 +249,7 @@ namespace guiv2 {
         /**
          * @brief 当窗体被创建时触发
          */
-        virtual void OnCreate() {
-        }
+        virtual void OnCreate() {}
 
         /**
          * @brief 要求窗体进行渲染
@@ -308,7 +286,7 @@ namespace guiv2 {
         void OpenWindow(std::unique_ptr<Window> window);
         void Close(Window& window);
 
-        void PostEvent(const UiEvent& event);
+        void PostEventFromISR(const UiEvent& event);
 
         /**
          * @brief Entrance of gui task
@@ -329,14 +307,15 @@ namespace guiv2 {
         IDisplay& display_;
         MonoBitMap frameBuffer_;
         std::vector<std::unique_ptr<Window>> windows_;
-        SmallQueue<std::move_only_function<void ()>, 8> pendingQueue_;
-        SmallQueue<UiEvent, 8> pendingEvent_;
-
-        TaskHandle_t mainTaskHandle_{};
+        SmallQueue<std::move_only_function<void()>, 8> pendingQueue_;
+        static constexpr UBaseType_t kPendingEventCapacity = 8;
+        alignas(UiEvent) std::array<uint8_t, kPendingEventCapacity * sizeof(UiEvent)> pendingEventStorage_{};
+        StaticQueue_t pendingEventControlBlock_{};
+        QueueHandle_t pendingEventQueue_{};
 
         bool dirty_{};
         bool mark_as_strong_{};
     };
-}
+} // namespace guiv2
 
-#endif //POCKETTRUSTEE_GUIV2_HPP
+#endif // POCKETTRUSTEE_GUIV2_HPP
