@@ -88,9 +88,9 @@ namespace guiv2::extension {
         std::span<const std::string> GetItems() const { return items_; }
         std::move_only_function<void(int)> Callback;
 
-    protected:
-        void OnRender(Scheme& scheme) override;
-        void OnEvent(const UiEvent& event) override;
+        // Intensionally exported Render and Event method
+        void OnRender(Scheme& scheme) override; // NOLINTTHISLINE
+        void OnEvent(const UiEvent& event) override; //NOLINTTHISLINE
 
     private:
         static constexpr size_t kNoSelection = 0xFFFFFFFF;

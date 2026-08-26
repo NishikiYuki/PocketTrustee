@@ -1,4 +1,5 @@
 #include "view_home.hpp"
+#include "view_password.hpp"
 
 using namespace guiv2::View::Home;
 
@@ -7,6 +8,10 @@ HomeWindow::HomeWindow(Gui& host, PocketTrustee::App& app) :
     app_(app),
     res_(ResWidth, ResHeight) {
     clickArea_Password.Rect = AreaPassword;
+    clickArea_Password.OnClick = [this] {
+        Close();
+        host_.OpenWindow(std::make_unique<Password::PasswordWindow>(host_, app_));
+    };
     clickArea_Token.Rect = AreaToken;
     clickArea_Card.Rect = AreaCard;
     clickArea_More.Rect = AreaMore;
