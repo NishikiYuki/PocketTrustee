@@ -74,7 +74,7 @@ StartupWindow::StartupWindow(Gui& host) : Window(host) {
 }
 
 void StartupWindow::OnCreate() {
-    host_.Invalidate(true);
+    gui_.Invalidate(true);
 }
 
 void StartupWindow::OnRender(Scheme& scheme) {
@@ -105,7 +105,7 @@ void StartupWindow::OnEvent(const UiEvent& event) {
                 t = "Cancel";
             }
             auto wn = std::make_unique<extension::OptionWindow>(
-                host_,
+                gui_,
                 rect,
                 "Clicked!",
                 t,
@@ -113,10 +113,10 @@ void StartupWindow::OnEvent(const UiEvent& event) {
                 "Cancel",
                 nullptr
             );
-            host_.OpenWindow(std::move(wn));
+            gui_.OpenWindow(std::move(wn));
         };
         auto wn = std::make_unique<extension::OptionWindow>(
-            host_,
+            gui_,
             rect,
             "Hello",
             "Hello World!",
@@ -124,6 +124,6 @@ void StartupWindow::OnEvent(const UiEvent& event) {
             "Cancel",
             std::move(callback)
         );
-        host_.OpenWindow(std::move(wn));
+        gui_.OpenWindow(std::move(wn));
     }
 }

@@ -4,13 +4,14 @@
 using namespace guiv2::View::Home;
 
 HomeWindow::HomeWindow(Gui& host, PocketTrustee::App& app) :
-    Window(host, {Point2u{}, ResWidth, ResHeight}),
-    app_(app),
-    res_(ResWidth, ResHeight) {
+    Window(host, {Point2u{}, ResWidth, ResHeight}), app_(app), res_(ResWidth, ResHeight) {
     clickArea_Password.Rect = AreaPassword;
     clickArea_Password.OnClick = [this] {
         Close();
-        host_.OpenWindow(std::make_unique<Password::PasswordWindow>(host_, app_));
+        gui_.OpenWindowDeferred(
+            [host = &gui_, app = &app_] {
+                return std::make_unique<Password::PasswordWindow>(*host, *app);
+            });
     };
     clickArea_Token.Rect = AreaToken;
     clickArea_Card.Rect = AreaCard;
@@ -27,7 +28,7 @@ void HomeWindow::OnCreate() {
     }
     auto buffer = res_.getBuffer();
     lfs_file_read(file.lfs, &file.f, buffer.data(), buffer.size());
-    host_.Invalidate(true);
+    gui_.Invalidate(true);
 }
 
 void HomeWindow::OnRender(Scheme& scheme) {

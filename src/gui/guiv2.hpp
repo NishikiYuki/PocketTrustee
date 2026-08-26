@@ -195,6 +195,7 @@ namespace guiv2 {
 
     class Gui;
     class Window;
+    using WindowFactory = std::move_only_function<std::unique_ptr<Window>()>;
 
     /**
      * @brief 控件基类
@@ -229,9 +230,9 @@ namespace guiv2 {
 
     class Window {
     public:
-        explicit Window(Gui& host, const WindowRect& rect) : host_(host), rect_(rect) {}
+        explicit Window(Gui& host, const WindowRect& rect) : gui_(host), rect_(rect) {}
 
-        explicit Window(Gui& host) : host_(host) {}
+        explicit Window(Gui& host) : gui_(host) {}
 
         virtual ~Window() = default;
 
@@ -249,6 +250,7 @@ namespace guiv2 {
         void Invalidate();
 
         void OpenWindow(std::unique_ptr<Window> window);
+        void OpenWindowDeferred(WindowFactory factory);
         void Close();
 
     protected:
@@ -275,7 +277,7 @@ namespace guiv2 {
 
         bool SetFocusedControl(size_t index);
 
-        Gui& host_;
+        Gui& gui_;
         WindowRect rect_;
         std::span<Control* const> controls_{};
         size_t focused_control_{kNoControl};
@@ -290,6 +292,7 @@ namespace guiv2 {
         Gui& operator=(const Gui&) = delete;
 
         void OpenWindow(std::unique_ptr<Window> window);
+        void OpenWindowDeferred(WindowFactory factory);
         void Close(Window& window);
 
         void PostEventFromISR(const UiEvent& event);

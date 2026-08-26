@@ -347,11 +347,13 @@ void Window::OnEvent(const UiEvent& event) {
     }
 }
 
-void Window::Invalidate() { host_.Invalidate(); }
+void Window::Invalidate() { gui_.Invalidate(); }
 
-void Window::Close() { host_.Close(*this); }
+void Window::Close() { gui_.Close(*this); }
 
-void Window::OpenWindow(std::unique_ptr<Window> window) { host_.OpenWindow(std::move(window)); }
+void Window::OpenWindow(std::unique_ptr<Window> window) { gui_.OpenWindow(std::move(window)); }
+
+void Window::OpenWindowDeferred(WindowFactory factory) { gui_.OpenWindowDeferred(std::move(factory)); }
 
 Gui::Gui(IDisplay& display) : display_(display), frameBuffer_(display.getWidth(), display.getHeight()) {
     windows_.reserve(4);
@@ -367,6 +369,19 @@ void Gui::OpenWindow(std::unique_ptr<Window> window) {
     pendingQueue_.push([this, wn = std::move(window)] mutable {
         wn->OnCreate();
         windows_.emplace_back(std::move(wn));
+        Invalidate();
+    });
+}
+
+void Gui::OpenWindowDeferred(WindowFactory factory) {
+    if (!factory)
+        return;
+    pendingQueue_.push([this, factory = std::move(factory)] mutable {
+        auto window = factory();
+        if (!window)
+            return;
+        window->OnCreate();
+        windows_.emplace_back(std::move(window));
         Invalidate();
     });
 }
