@@ -1,6 +1,8 @@
 #ifndef POCKETTRUSTEE_GUI_EXTENSION_HPP
 #define POCKETTRUSTEE_GUI_EXTENSION_HPP
 
+#include <span>
+#include <string>
 #include "gui_base_font.hpp"
 #include "guiv2.hpp"
 
@@ -13,8 +15,7 @@ namespace guiv2::extension {
     class ClickArea : public Control {
     public:
         ClickArea(const WindowRect& rect, std::move_only_function<void()> click) :
-            Rect(rect), OnClick(std::move(click)) {
-        }
+            Rect(rect), OnClick(std::move(click)) {}
 
         ClickArea() = default;
 
@@ -36,8 +37,7 @@ namespace guiv2::extension {
     class Button final : public ClickArea {
     public:
         Button(const WindowRect& rect, std::string_view text, std::move_only_function<void()> click) :
-            ClickArea(rect, std::move(click)), Text(text) {
-        }
+            ClickArea(rect, std::move(click)), Text(text) {}
 
         Button() = default;
 
@@ -80,13 +80,12 @@ namespace guiv2::extension {
 
     class ScrollMenuWindow final : public Window {
     public:
-        ScrollMenuWindow(Gui& host, const WindowRect& rect, std::vector<std::string_view> items,
+        ScrollMenuWindow(Gui& host, const WindowRect& rect, std::span<const std::string> items,
                          std::move_only_function<void(int)> callback) :
-            Window(host, rect), Callback(std::move(callback)), items_(std::move(items)) {
-        }
+            Window(host, rect), Callback(std::move(callback)), items_(items) {}
 
-        void SetItems(std::vector<std::string_view> items);
-        const std::vector<std::string_view>& GetItems() const { return items_; }
+        void SetItems(std::span<const std::string> items);
+        std::span<const std::string> GetItems() const { return items_; }
         std::move_only_function<void(int)> Callback;
 
     protected:
@@ -107,7 +106,7 @@ namespace guiv2::extension {
         void EnsureSelectionVisible(size_t visible_item_count);
         void RenderScrollbar(Scheme& scheme, size_t visible_item_count);
 
-        std::vector<std::string_view> items_;
+        std::span<const std::string> items_;
 
         size_t selected_index_{items_.empty() ? kNoSelection : 0};
         size_t first_visible_index_{};

@@ -103,8 +103,8 @@ void ScrollMenuWindow::OnRender(Scheme& scheme) {
     scheme.Border(kBorderWidth);
 }
 
-void ScrollMenuWindow::SetItems(std::vector<std::string_view> items) {
-    items_ = std::move(items);
+void ScrollMenuWindow::SetItems(std::span<const std::string> items) {
+    items_ = items;
 
     if (items_.empty()) {
         selected_index_ = kNoSelection;
