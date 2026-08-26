@@ -18,6 +18,12 @@ namespace guiv2 {
     template <class T>
     using pointer = T*;
 
+    /**
+     * @brief 解码一个 UTF-8 字符,i 前进到下一个字符
+     * @note 非法或截断的字节按原字节(0x00~0xFF)返回,保证 i 始终推进
+     */
+    char32_t DecodeUTF8(std::string_view s, size_t& i);
+
     struct Point2u {
         constexpr Point2u(size_t x, size_t y) : x(x), y(y) {}
 

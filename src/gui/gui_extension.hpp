@@ -1,8 +1,8 @@
 #ifndef POCKETTRUSTEE_GUI_EXTENSION_HPP
 #define POCKETTRUSTEE_GUI_EXTENSION_HPP
 
-#include "guiv2.hpp"
 #include "gui_base_font.hpp"
+#include "guiv2.hpp"
 
 namespace guiv2::extension {
     class FontFamily {
@@ -49,33 +49,21 @@ namespace guiv2::extension {
     class OptionWindow final : public Window {
     public:
         OptionWindow(Gui& host, const WindowRect& rect, std::string_view title, std::string_view text,
-                     std::string_view option1, std::string_view option2, std::move_only_function<void (int)> callback) :
-            Window(host, rect),
-            Title(title),
-            Text(text),
-            Callback(std::move(callback)),
-            btn1({}, option1, [this] { CallbackForward(1); }),
-            btn2({}, option2, [this] { CallbackForward(2); }) {
+                     std::string_view option1, std::string_view option2, std::move_only_function<void(int)> callback) :
+            Window(host, rect), Title(title), Text(text), Callback(std::move(callback)),
+            btn1({}, option1, [this] { CallbackForward(1); }), btn2({}, option2, [this] { CallbackForward(2); }) {
             // calculate average padding
             size_t len = option1.size() + option2.size();
             len *= 8;
             len = (rect_.width - len) / 3;
-            btn1.Rect = {
-                Point2u{len, rect_.height - 24},
-                option1.size() * 8 + 4,
-                12
-            };
-            btn2.Rect = {
-                Point2u{2 * len + btn1.Rect.width, rect_.height - 24},
-                option2.size() * 8 + 4,
-                12
-            };
+            btn1.Rect = {Point2u{len, rect_.height - 24}, option1.size() * 8 + 4, 12};
+            btn2.Rect = {Point2u{2 * len + btn1.Rect.width, rect_.height - 24}, option2.size() * 8 + 4, 12};
             SetControls(control_array);
         }
 
         std::string_view Title;
         std::string_view Text;
-        std::move_only_function<void (int)> Callback;
+        std::move_only_function<void(int)> Callback;
 
     protected:
         void OnRender(Scheme& scheme) override;
@@ -84,10 +72,46 @@ namespace guiv2::extension {
         Control* control_array[2]{&btn1, &btn2};
 
         void CallbackForward(int n) {
-            if (Callback) Callback(n);
+            if (Callback)
+                Callback(n);
             Close();
         }
     };
-}
 
-#endif //POCKETTRUSTEE_GUI_EXTENSION_HPP
+    class ScrollMenuWindow final : public Window {
+    public:
+        ScrollMenuWindow(Gui& host, const WindowRect& rect, std::vector<std::string_view> items,
+                         std::move_only_function<void(int)> callback) :
+            Window(host, rect), Callback(std::move(callback)), items_(std::move(items)) {
+        }
+
+        void SetItems(std::vector<std::string_view> items);
+        const std::vector<std::string_view>& GetItems() const { return items_; }
+        std::move_only_function<void(int)> Callback;
+
+    protected:
+        void OnRender(Scheme& scheme) override;
+        void OnEvent(const UiEvent& event) override;
+
+    private:
+        static constexpr size_t kNoSelection = 0xFFFFFFFF;
+        static constexpr size_t kLineHeight = 16;
+        static constexpr size_t kBorderWidth = 1;
+        static constexpr size_t kScrollbarWidth = 3;
+        static constexpr size_t kMinimumScrollbarThumbHeight = 8;
+        static constexpr size_t kAsciiGlyphWidth = 8;
+
+        static size_t CountGlyphs(std::string_view text);
+        static void RenderTextSingleLine(Scheme& scheme, std::string_view text, Point2u origin, size_t available_width);
+        void MoveSelection(int direction);
+        void EnsureSelectionVisible(size_t visible_item_count);
+        void RenderScrollbar(Scheme& scheme, size_t visible_item_count);
+
+        std::vector<std::string_view> items_;
+
+        size_t selected_index_{items_.empty() ? kNoSelection : 0};
+        size_t first_visible_index_{};
+    };
+} // namespace guiv2::extension
+
+#endif // POCKETTRUSTEE_GUI_EXTENSION_HPP

@@ -13,51 +13,47 @@ namespace {
             return max;
         return x;
     }
-
-    /**
-     * @brief 解码一个 UTF-8 字符,i 前进到下一个字符
-     * @note 非法或截断的字节按原字节(0x00~0xFF)返回,保证 i 始终推进
-     */
-    char32_t DecodeUTF8(std::string_view s, size_t& i) {
-        const auto b = static_cast<uint8_t>(s[i]);
-        size_t len;
-        char32_t cp;
-        if (b < 0x80) {
-            i++;
-            return b;
-        }
-        if ((b & 0xE0) == 0xC0) {
-            len = 2;
-            cp = b & 0x1F;
-        }
-        else if ((b & 0xF0) == 0xE0) {
-            len = 3;
-            cp = b & 0x0F;
-        }
-        else if ((b & 0xF8) == 0xF0) {
-            len = 4;
-            cp = b & 0x07;
-        }
-        else {
-            i++;
-            return b;
-        }
-        if (i + len > s.size()) {
-            i++;
-            return b;
-        }
-        for (size_t k = 1; k < len; k++) {
-            const auto c = static_cast<uint8_t>(s[i + k]);
-            if ((c & 0xC0) != 0x80) {
-                i++;
-                return b;
-            }
-            cp = (cp << 6) | (c & 0x3F);
-        }
-        i += len;
-        return cp;
-    }
 } // namespace
+
+char32_t guiv2::DecodeUTF8(std::string_view s, size_t& i) {
+    const auto b = static_cast<uint8_t>(s[i]);
+    size_t len;
+    char32_t cp;
+    if (b < 0x80) {
+        i++;
+        return b;
+    }
+    if ((b & 0xE0) == 0xC0) {
+        len = 2;
+        cp = b & 0x1F;
+    }
+    else if ((b & 0xF0) == 0xE0) {
+        len = 3;
+        cp = b & 0x0F;
+    }
+    else if ((b & 0xF8) == 0xF0) {
+        len = 4;
+        cp = b & 0x07;
+    }
+    else {
+        i++;
+        return b;
+    }
+    if (i + len > s.size()) {
+        i++;
+        return b;
+    }
+    for (size_t k = 1; k < len; k++) {
+        const auto c = static_cast<uint8_t>(s[i + k]);
+        if ((c & 0xC0) != 0x80) {
+            i++;
+            return b;
+        }
+        cp = (cp << 6) | (c & 0x3F);
+    }
+    i += len;
+    return cp;
+}
 
 uint8_t ReadonlyMonoBitMap::operator[](Point2u pos) const {
     size_t bit = pos.x * height_ + pos.y;
