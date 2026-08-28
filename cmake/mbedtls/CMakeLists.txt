@@ -22,7 +22,7 @@ set(TF_PSA_CRYPTO_USER_CONFIG_FILE
     CACHE FILEPATH "TF-PSA-Crypto user configuration" FORCE
 )
 
-add_compile_options(-Os -g0)
+add_compile_options(-Os -g0 -w)
 
 add_subdirectory(
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Lib/mbedtls

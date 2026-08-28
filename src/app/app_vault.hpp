@@ -2,28 +2,16 @@
 #define POCKETTRUSTEE_APP_VAULT_HPP
 
 #include "app_ptt_utility.hpp"
-#include <optional>
+#include <span>
 #include <vector>
 #include <string>
-#include <unordered_map>
 
 namespace PocketTrustee {
-    template <typename T> requires std::is_trivially_copyable_v<T>
-    class WipeGuard {
-    public:
-        explicit WipeGuard(T& self) : self(&self) {
-        }
-
-        ~WipeGuard();
-        T* self;
-        WipeGuard(const WipeGuard&) = delete;
-        WipeGuard& operator=(const WipeGuard&) = delete;
-    };
-
     class VaultDatabaseV1 {
     public:
         VaultDatabaseV1(lfs_t* fs, lfs_config* disk, std::string_view path) :
             fs_(fs), disk_(disk), path_(path), unlocked_(false), next_seq_(1) {
+            entity_index_.reserve(32);
         }
 
         ~VaultDatabaseV1();
@@ -31,13 +19,48 @@ namespace PocketTrustee {
         VaultDatabaseV1(const VaultDatabaseV1&) = delete;
         VaultDatabaseV1& operator=(const VaultDatabaseV1&) = delete;
 
+        enum class Error : int {
+            Ok = 0,
+            InvalidParameter, // Invalid parameter or state
+            IoError, // I/O error
+            NoEntity, // Entity not found
+            Corrupt, // Data corruption detected
+            Exists, // Entity already exists
+            NotUnlocked, // Database not unlocked
+            CryptoError, // Cryptographic operation failed
+            WrongKey, // Key verification failed
+        };
+
+        struct DataField {
+            uint32_t offset;
+            size_t size;
+        };
+
+        // Unlock database with master key
+        Error Unlock(const std::span<const uint8_t>& master_key);
+
+        // Lock database
+        void Lock();
+
+        // Append a new entry, returns entity_id through output parameter
+        Error Append(std::string_view name, const std::span<const uint8_t>& data, uint32_t& entity_id);
+
+        // Remove an entry by entity_id
+        Error Remove(uint32_t entity_id);
+
+        // Modify both entry name and data
+        Error Modify(uint32_t entity_id, std::string_view name, const std::span<const uint8_t>& data);
+
+        Error Read(uint32_t entity_id, const std::span<char>& name, const std::span<uint8_t>& data);
+
+    private:
         static constexpr uint32_t kDbHeaderMagic = 0x56444231;
         static constexpr uint32_t kRecordHeaderMagic = 0x52454344;
         static constexpr uint32_t kTrailerMagic = 0x5441494C;
         static constexpr uint32_t kDbVersion = 1;
 
         // Record type enumeration
-        enum class DBRecordType : uint32_t {
+        enum class DbRecordType : uint16_t {
             New,
             Remove
         };
@@ -68,71 +91,56 @@ namespace PocketTrustee {
             uint32_t trailer_magic; // Trailer magic for integrity
         };
 
-        // Unlock database with master key
-        int Unlock(const uint8_t master_key[32]);
-
-        // Lock database
-        void Lock();
-
-        // Append a new entry, returns entity_id on success, 0 on failure
-        uint32_t Append(std::string_view name, const uint8_t* data, size_t len);
-
-        // Remove an entry by entity_id
-        int Remove(uint32_t entity_id);
-
-        // Modify entry data
-        int Modify(uint32_t entity_id, const uint8_t* data, size_t len);
-
-        // Modify entry name
-        int Modify(uint32_t entity_id, std::string_view name);
-
-        // Modify both entry name and data
-        int Modify(uint32_t entity_id, std::string_view name, const uint8_t* data, size_t len);
-
-    private:
-        // Entity state in memory
-        struct EntityState {
-            std::string name;
-            std::vector<uint8_t> data;
+        // Index section storing entity location in file
+        struct IdxSection {
+            uint32_t entity_id;
+            uint32_t offset; // File offset to the record header
         };
 
         lfs_t* fs_;
         lfs_config* disk_;
         std::string path_;
 
-        uint8_t master_key_[32]{};
+        uint8_t encrypt_key_[32]{};
         bool unlocked_;
         uint32_t next_seq_; // Next sequence number to use
 
-        // In-memory index of active entities
-        std::unordered_map<uint32_t, EntityState> entity_index_;
+        // In-memory index of active entities (sorted by entity_id for binary search)
+        std::vector<IdxSection> entity_index_;
+
+        // Derive key using HMAC
+        static Error DeriveKeyHMAC(const std::span<const uint8_t>& key, const std::span<const uint8_t>& salt,
+                                   const std::span<uint8_t>& mac);
+        // Utilities
+        static uint32_t ComputeCRC32(const uint8_t* data, size_t len);
+        static int GenerateRandom(uint8_t* output, size_t len);
+        static Error LfsErrorToError(int lfs_err);
 
         // Initialize a new database file
-        int InitializeDatabase();
+        int InitializeDatabase(const std::span<const uint8_t>& master_key);
 
         // Verify the database file and load metadata
-        int LoadDatabase();
+        int LoadDatabase(const std::span<const uint8_t>& master_key);
 
         // Write a record to the database
-        int WriteRecord(DBRecordType type, uint32_t entity_id, uint32_t seq,
-                        std::string_view name, const uint8_t* data, size_t data_len);
-
-        // Compute CRC32
-        static uint32_t ComputeCRC32(const uint8_t* data, size_t len);
-
-        // Generate random bytes
-        static int GenerateRandom(uint8_t* output, size_t len);
+        Error WriteRecord(DbRecordType type, uint32_t entity_id,
+                          std::string_view name, const std::span<const uint8_t>& data);
 
         // Encrypt data using AES-256-GCM
-        int EncryptData(const RecordHeader& header, const uint8_t* plaintext, size_t plaintext_len,
-                        uint8_t* ciphertext, uint8_t* tag);
+        // Tag is followed by ciphertext
+        Error EncryptData(const RecordHeader& header, const std::span<const uint8_t>& plaintext,
+                          const std::span<uint8_t>& ciphertext);
 
         // Decrypt data using AES-256-GCM
-        int DecryptData(const RecordHeader& header, const uint8_t* ciphertext, size_t ciphertext_len,
-                        const uint8_t* tag, uint8_t* plaintext);
+        // Tag must follow with the ciphertext
+        Error DecryptData(const RecordHeader& header, const std::span<const uint8_t>& ciphertext,
+                          const std::span<uint8_t>& plaintext);
 
-        // Derive key check value
-        static void DeriveKeyCheck(const uint8_t* salt, const uint8_t* key, uint8_t* key_check);
+
+        // Index management helpers
+        int FindEntityInIndex(uint32_t entity_id) const; // Returns index in vector, or -1 if not found
+        void AddOrUpdateIndex(uint32_t entity_id, uint32_t offset);
+        void RemoveFromIndex(uint32_t entity_id);
     };
 }
 

@@ -6,12 +6,8 @@
 
 using namespace PocketTrustee;
 
-template <typename T> requires std::is_trivially_copyable_v<T>
-WipeGuard<T>::~WipeGuard() { mbedtls_platform_zeroize(self, sizeof(T)); }
-
-
 VaultDatabaseV1::~VaultDatabaseV1() {
-    mbedtls_platform_zeroize(master_key_, sizeof(master_key_));
+    mbedtls_platform_zeroize(encrypt_key_, sizeof(encrypt_key_));
 }
 
 uint32_t VaultDatabaseV1::ComputeCRC32(const uint8_t* data, size_t len) {
@@ -24,37 +20,56 @@ int VaultDatabaseV1::GenerateRandom(uint8_t* output, size_t len) {
     return (status == PSA_SUCCESS) ? 0 : -1;
 }
 
-void VaultDatabaseV1::DeriveKeyCheck(const uint8_t* salt, const uint8_t* key, uint8_t* key_check) {
-    // Use HMAC-SHA256 to derive key check value
+VaultDatabaseV1::Error VaultDatabaseV1::LfsErrorToError(int lfs_err) {
+    switch (lfs_err) {
+    case LFS_ERR_OK:
+        return Error::Ok;
+    case LFS_ERR_CORRUPT:
+        return Error::Corrupt;
+    case LFS_ERR_NOENT:
+        return Error::NoEntity;
+    case LFS_ERR_EXIST:
+        return Error::Exists;
+    case LFS_ERR_INVAL:
+        return Error::InvalidParameter;
+    default:
+        return Error::IoError;
+    }
+}
+
+VaultDatabaseV1::Error VaultDatabaseV1::DeriveKeyHMAC(const std::span<const uint8_t>& key,
+                                                      const std::span<const uint8_t>& salt,
+                                                      const std::span<uint8_t>& mac) {
+    // Use HMAC-SHA256 to derive key
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attributes, PSA_ALG_HMAC(PSA_ALG_SHA_256));
     psa_set_key_type(&attributes, PSA_KEY_TYPE_HMAC);
 
     psa_key_id_t key_id;
-    psa_status_t status = psa_import_key(&attributes, key, 32, &key_id);
+    psa_status_t status = psa_import_key(&attributes, key.data(), key.size(), &key_id);
     if (status != PSA_SUCCESS) {
-        mbedtls_platform_zeroize(key_check, 16);
-        return;
+        mbedtls_platform_zeroize(mac.data(), mac.size());
+        return Error::InvalidParameter;
     }
 
-    uint8_t mac[32];
+    uint8_t mac_buffer[32];
     size_t mac_len;
     status = psa_mac_compute(key_id, PSA_ALG_HMAC(PSA_ALG_SHA_256),
-                             salt, 16, mac, sizeof(mac), &mac_len);
+                             salt.data(), salt.size(),
+                             mac_buffer, sizeof(mac_buffer), &mac_len);
 
-    if (status == PSA_SUCCESS) {
-        memcpy(key_check, mac, 16);
+    if (status != PSA_SUCCESS) {
+        mbedtls_platform_zeroize(mac.data(), mac.size());
     }
-    else {
-        mbedtls_platform_zeroize(key_check, 16);
-    }
+
+    memcpy(mac.data(), mac_buffer, std::min(sizeof(mac_buffer), mac.size()));
 
     psa_destroy_key(key_id);
-    mbedtls_platform_zeroize(mac, sizeof(mac));
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::InitializeDatabase() {
+int VaultDatabaseV1::InitializeDatabase(const std::span<const uint8_t>& master_key) {
     FileHeader header{};
     header.magic = kDbHeaderMagic;
     header.version = kDbVersion;
@@ -65,7 +80,11 @@ int VaultDatabaseV1::InitializeDatabase() {
     }
 
     // Derive key check value
-    DeriveKeyCheck(header.salt, master_key_, header.key_check);
+    constexpr char check_info[] = "check";
+    uint8_t salt_check[sizeof(header.salt) + sizeof(check_info)];
+    memcpy(salt_check, header.salt, sizeof(header.salt));
+    memcpy(salt_check + sizeof(header.salt), check_info, sizeof(check_info));
+    DeriveKeyHMAC(master_key, salt_check, header.key_check);
 
     // Compute CRC32 for header (excluding the crc32 field itself)
     header.header_crc32 = ComputeCRC32(reinterpret_cast<const uint8_t*>(&header),
@@ -88,11 +107,18 @@ int VaultDatabaseV1::InitializeDatabase() {
         return err;
     }
 
+    // Derive encrypt key
+    constexpr char encrypted_info[] = "encrypt";
+    uint8_t salt_encrypt[sizeof(header.salt) + sizeof(encrypted_info)];
+    memcpy(salt_encrypt, header.salt, sizeof(header.salt));
+    memcpy(salt_encrypt + sizeof(header.salt), encrypted_info, sizeof(encrypted_info));
+    DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
+
     next_seq_ = 1;
     return 0;
 }
 
-int VaultDatabaseV1::LoadDatabase() {
+int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
     LfsFileGuard file(fs_);
     int err = file.open(path_.c_str(), LFS_O_RDONLY);
     if (err < 0) {
@@ -123,18 +149,25 @@ int VaultDatabaseV1::LoadDatabase() {
     }
 
     // Verify key
-    {
-        uint8_t expected_key_check[16];
-        WipeGuard expected_key_guard{expected_key_check};
-        DeriveKeyCheck(header.salt, master_key_, expected_key_check);
-        if (memcmp(expected_key_check, header.key_check, 16) != 0) {
-            return LFS_ERR_INVAL; // Wrong key
-        }
+    uint8_t expected_key_check[16];
+    constexpr char check_info[] = "check";
+    uint8_t salt_check[sizeof(header.salt) + sizeof(check_info)];
+    memcpy(salt_check, header.salt, sizeof(header.salt));
+    memcpy(salt_check + sizeof(header.salt), check_info, sizeof(check_info));
+    DeriveKeyHMAC(master_key, salt_check, expected_key_check);
+    if (memcmp(expected_key_check, header.key_check, sizeof(expected_key_check)) != 0) {
+        return LFS_ERR_INVAL; // Wrong key
     }
+
     // Scan through all records to find the highest sequence number and build index
     entity_index_.clear();
     uint32_t max_seq = 0;
+    uint32_t current_offset = sizeof(FileHeader); // Start after file header
+
     for (;;) {
+        // Save current position (start of record)
+        uint32_t record_offset = current_offset;
+
         RecordHeader rec_header{};
         lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
         if (bytes == 0) {
@@ -149,66 +182,43 @@ int VaultDatabaseV1::LoadDatabase() {
             max_seq = rec_header.seq;
         }
 
-        // Read name
-        std::string name(rec_header.name_size, '\0');
-        if (rec_header.name_size > 0) {
-            bytes = lfs_file_read(fs_, &file.f, name.data(), rec_header.name_size);
-            if (bytes != static_cast<lfs_ssize_t>(rec_header.name_size)) {
-                return LFS_ERR_IO;
-            }
-        }
-
-        // Read encrypted data
-        std::vector<uint8_t> encrypted_data(rec_header.data_size);
-        if (rec_header.data_size > 0) {
-            bytes = lfs_file_read(fs_, &file.f, encrypted_data.data(), rec_header.data_size);
-            if (bytes != static_cast<lfs_ssize_t>(rec_header.data_size)) {
-                return LFS_ERR_IO;
-            }
-        }
-
-        // Read trailer
-        RecordTrailer trailer{};
-        bytes = lfs_file_read(fs_, &file.f, &trailer, sizeof(trailer));
-        if (bytes != sizeof(trailer) || trailer.trailer_magic != kTrailerMagic) {
-            return LFS_ERR_CORRUPT;
-        }
-
-        // Decrypt data
-        std::vector<uint8_t> decrypted_data(rec_header.data_size);
-        if (rec_header.data_size > 0) {
-            err = DecryptData(rec_header, encrypted_data.data(), rec_header.data_size,
-                            trailer.auth_tag, decrypted_data.data());
-            if (err < 0) {
-                return LFS_ERR_CORRUPT; // Decryption failed
-            }
-        }
-
         // Update index based on record type
-        auto type = static_cast<DBRecordType>(rec_header.type);
-        if (type == DBRecordType::New) {
-            // Add or update entity in index
-            entity_index_[rec_header.entity_id] = EntityState{
-                std::move(name),
-                std::move(decrypted_data)
-            };
-        } else if (type == DBRecordType::Remove) {
-            // Remove entity from index
-            entity_index_.erase(rec_header.entity_id);
+        auto type = static_cast<DbRecordType>(rec_header.type);
+        if (type == DbRecordType::New) {
+            // Add or update entity in index with current record offset
+            AddOrUpdateIndex(rec_header.entity_id, record_offset);
         }
+        else if (type == DbRecordType::Remove) {
+            // Remove entity from index
+            RemoveFromIndex(rec_header.entity_id);
+        }
+
+        // Skip to next record
+        auto skip_size = static_cast<lfs_soff_t>(rec_header.name_size + rec_header.data_size + sizeof(RecordTrailer));
+        err = lfs_file_seek(fs_, &file.f, skip_size, LFS_SEEK_CUR);
+        if (err < 0) {
+            return err;
+        }
+
+        // Update current offset
+        current_offset += sizeof(RecordHeader) + skip_size;
     }
+
+    // Derive encrypt key
+    constexpr char encrypted_info[] = "encrypt";
+    uint8_t salt_encrypt[sizeof(header.salt) + sizeof(encrypted_info)];
+    memcpy(salt_encrypt, header.salt, sizeof(header.salt));
+    memcpy(salt_encrypt + sizeof(header.salt), encrypted_info, sizeof(encrypted_info));
+    DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
 
     next_seq_ = max_seq + 1;
     return 0;
 }
 
-int VaultDatabaseV1::Unlock(const uint8_t master_key[32]) {
+VaultDatabaseV1::Error VaultDatabaseV1::Unlock(const std::span<const uint8_t>& master_key) {
     if (unlocked_) {
-        return 0; // Already unlocked
+        return Error::Ok; // Already unlocked
     }
-
-    // Copy master key
-    memcpy(master_key_, master_key, 32);
 
     // Check if database file exists
     lfs_info info{};
@@ -216,14 +226,14 @@ int VaultDatabaseV1::Unlock(const uint8_t master_key[32]) {
 
     if (err == LFS_ERR_NOENT) {
         // Database doesn't exist, create it
-        err = InitializeDatabase();
+        err = InitializeDatabase(master_key);
         if (err < 0) {
             goto clean;
         }
     }
     else if (err == 0) {
         // Database exists, load it
-        err = LoadDatabase();
+        err = LoadDatabase(master_key);
         if (err < 0) {
             goto clean;
         }
@@ -234,22 +244,31 @@ int VaultDatabaseV1::Unlock(const uint8_t master_key[32]) {
     }
 
     unlocked_ = true;
-    return 0;
+    return Error::Ok;
 clean:
-    mbedtls_platform_zeroize(master_key_, sizeof(master_key_));
-    return err;
+    mbedtls_platform_zeroize(encrypt_key_, sizeof(encrypt_key_));
+    // Check for specific error cases
+    if (err == LFS_ERR_INVAL) {
+        return Error::WrongKey;
+    }
+    return LfsErrorToError(err);
 }
 
 void VaultDatabaseV1::Lock() {
     if (unlocked_) {
-        mbedtls_platform_zeroize(master_key_, sizeof(master_key_));
+        mbedtls_platform_zeroize(encrypt_key_, sizeof(encrypt_key_));
         entity_index_.clear(); // Clear the index
         unlocked_ = false;
     }
 }
 
-int VaultDatabaseV1::EncryptData(const RecordHeader& header, const uint8_t* plaintext,
-                                 size_t plaintext_len, uint8_t* ciphertext, uint8_t* tag) {
+VaultDatabaseV1::Error VaultDatabaseV1::EncryptData(const RecordHeader& header,
+                                                    const std::span<const uint8_t>& plaintext,
+                                                    const std::span<uint8_t>& ciphertext) {
+    if (ciphertext.size() < plaintext.size() + 16) {
+        return Error::InvalidParameter;
+    }
+
     // Import master key for AES-GCM
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_ENCRYPT);
@@ -257,37 +276,39 @@ int VaultDatabaseV1::EncryptData(const RecordHeader& header, const uint8_t* plai
     psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
 
     psa_key_id_t key_id;
-    psa_status_t status = psa_import_key(&attributes, master_key_, 32, &key_id);
+    psa_status_t status = psa_import_key(&attributes, encrypt_key_, sizeof(encrypt_key_), &key_id);
     if (status != PSA_SUCCESS) {
-        return -1;
+        return Error::CryptoError;
     }
 
-    // Prepare AAD (first 16 bytes of header: magic, entity_id, seq, type)
+    // Prepare AAD
     const auto* aad = reinterpret_cast<const uint8_t*>(&header);
-    size_t aad_len = 16; // magic(4) + entity_id(4) + seq(4) + type(4)
+    constexpr size_t aad_len = offsetof(RecordHeader, iv);
 
     // Perform AEAD encryption
     size_t output_len;
     status = psa_aead_encrypt(key_id, PSA_ALG_GCM,
                               header.iv, sizeof(header.iv),
                               aad, aad_len,
-                              plaintext, plaintext_len,
-                              ciphertext, plaintext_len + 16, &output_len);
+                              plaintext.data(), plaintext.size(),
+                              ciphertext.data(), ciphertext.size(), &output_len);
 
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return -1;
+        return Error::CryptoError;
     }
 
-    // Extract tag from the end of output
-    memcpy(tag, ciphertext + plaintext_len, 16);
-
-    return 0;
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::DecryptData(const RecordHeader& header, const uint8_t* ciphertext,
-                                  size_t ciphertext_len, const uint8_t* tag, uint8_t* plaintext) {
+VaultDatabaseV1::Error VaultDatabaseV1::DecryptData(const RecordHeader& header,
+                                                    const std::span<const uint8_t>& ciphertext,
+                                                    const std::span<uint8_t>& plaintext) {
+    if (ciphertext.size() > plaintext.size() + 16) {
+        return Error::InvalidParameter;
+    }
+
     // Import master key for AES-GCM
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_DECRYPT);
@@ -295,280 +316,273 @@ int VaultDatabaseV1::DecryptData(const RecordHeader& header, const uint8_t* ciph
     psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
 
     psa_key_id_t key_id;
-    psa_status_t status = psa_import_key(&attributes, master_key_, 32, &key_id);
+    psa_status_t status = psa_import_key(&attributes, encrypt_key_, sizeof(encrypt_key_), &key_id);
     if (status != PSA_SUCCESS) {
-        return -1;
+        return Error::CryptoError;
     }
 
-    // Prepare AAD (first 16 bytes of header: magic, entity_id, seq, type)
+    // Prepare AAD
     const auto* aad = reinterpret_cast<const uint8_t*>(&header);
-    size_t aad_len = 16; // magic(4) + entity_id(4) + seq(4) + type(4)
-
-    // Combine ciphertext and tag for PSA API
-    std::vector<uint8_t> ciphertext_with_tag(ciphertext_len + 16);
-    if (ciphertext_len > 0) {
-        memcpy(ciphertext_with_tag.data(), ciphertext, ciphertext_len);
-    }
-    memcpy(ciphertext_with_tag.data() + ciphertext_len, tag, 16);
+    constexpr size_t aad_len = offsetof(RecordHeader, iv);
 
     // Perform AEAD decryption
     size_t output_len;
     status = psa_aead_decrypt(key_id, PSA_ALG_GCM,
-                             header.iv, sizeof(header.iv),
-                             aad, aad_len,
-                             ciphertext_with_tag.data(), ciphertext_with_tag.size(),
-                             plaintext, ciphertext_len, &output_len);
+                              header.iv, sizeof(header.iv),
+                              aad, aad_len,
+                              ciphertext.data(), ciphertext.size(),
+                              plaintext.data(), plaintext.size(), &output_len);
 
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return -1;
+        return Error::CryptoError;
     }
 
-    return 0;
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::WriteRecord(DBRecordType type, uint32_t entity_id, uint32_t seq,
-                                 std::string_view name, const uint8_t* data, size_t data_len) {
-    if (!unlocked_) {
-        return LFS_ERR_INVAL;
+int VaultDatabaseV1::FindEntityInIndex(uint32_t entity_id) const {
+    // Linear search through the index
+    for (size_t i = 0; i < entity_index_.size(); ++i) {
+        if (entity_index_[i].entity_id == entity_id) {
+            return static_cast<int>(i);
+        }
     }
+    return -1; // Not found
+}
+
+void VaultDatabaseV1::AddOrUpdateIndex(uint32_t entity_id, uint32_t offset) {
+    int idx = FindEntityInIndex(entity_id);
+    if (idx >= 0) {
+        // Update existing entry
+        entity_index_[idx].offset = offset;
+    }
+    else {
+        // Add new entry
+        entity_index_.push_back(IdxSection{entity_id, offset});
+    }
+}
+
+void VaultDatabaseV1::RemoveFromIndex(uint32_t entity_id) {
+    int idx = FindEntityInIndex(entity_id);
+    if (idx >= 0) {
+        // Remove by swapping with last element and popping
+        if (idx < static_cast<int>(entity_index_.size()) - 1) {
+            entity_index_[idx] = entity_index_.back();
+        }
+        entity_index_.pop_back();
+    }
+}
+
+VaultDatabaseV1::Error VaultDatabaseV1::WriteRecord(DbRecordType type, uint32_t entity_id,
+                                                    std::string_view name, const std::span<const uint8_t>& data) {
+    if (!unlocked_) {
+        return Error::NotUnlocked;
+    }
+
+    const uint32_t seq = next_seq_++;
 
     // Prepare record header
     RecordHeader header{};
     header.magic = kRecordHeaderMagic;
     header.entity_id = entity_id;
     header.seq = seq;
-    header.type = static_cast<uint32_t>(type);
+    header.type = static_cast<uint16_t>(type);
     header.name_size = name.size();
-    header.data_size = data_len;
+    header.data_size = data.size();
 
-    // Generate IV: entity_id (4) | seq (4) | random (4)
-    memcpy(header.iv, &entity_id, 4);
-    memcpy(header.iv + 4, &seq, 4);
-    if (GenerateRandom(header.iv + 8, 4) != 0) {
-        return -1;
-    }
-
-    // Allocate buffers for encrypted data and tag
-    std::vector<uint8_t> ciphertext(data_len);
     RecordTrailer trailer{};
     trailer.trailer_magic = kTrailerMagic;
 
-    // Encrypt data
-    if (data_len > 0) {
-        if (EncryptData(header, data, data_len, ciphertext.data(), trailer.auth_tag) != 0) {
-            return -1;
+    std::vector<uint8_t> data_filed;
+
+    // Remove type carry no data, skip encrypt
+    if (type != DbRecordType::Remove) {
+        // Generate IV: entity_id (4) | seq (4) | random (4)
+        memcpy(header.iv, &entity_id, sizeof(entity_id));
+        memcpy(header.iv + sizeof(entity_id), &seq, sizeof(seq));
+        if (GenerateRandom(header.iv + sizeof(entity_id) + sizeof(seq), 4) != 0) {
+            return Error::CryptoError;
         }
-    }
-    else {
-        // For empty data, we still need to generate a tag
-        uint8_t dummy_output[16];
-        if (EncryptData(header, nullptr, 0, dummy_output, trailer.auth_tag) != 0) {
-            return -1;
+
+        // Allocate buffers for encrypted data and tag
+        std::vector<uint8_t> ciphertext(data.size() + 16);
+        // Encrypt data
+        auto err = EncryptData(header, data, ciphertext);
+        if (err != Error::Ok) {
+            return err;
         }
+        data_filed = std::move(ciphertext);
     }
 
     // Open file for appending
     LfsFileGuard file(fs_);
     int err = file.open(path_.c_str(), LFS_O_WRONLY | LFS_O_APPEND);
     if (err < 0) {
-        return err;
+        return Error::Exists;
     }
 
     // Write record header
     lfs_ssize_t written = lfs_file_write(fs_, &file.f, &header, sizeof(header));
     if (written != sizeof(header)) {
-        return LFS_ERR_IO;
+        return Error::IoError;
     }
 
     // Write name (plaintext)
     if (header.name_size > 0) {
         written = lfs_file_write(fs_, &file.f, name.data(), header.name_size);
         if (written != static_cast<lfs_ssize_t>(header.name_size)) {
-            return LFS_ERR_IO;
+            return Error::IoError;
         }
     }
 
-    // Write encrypted data
-    if (data_len > 0) {
-        written = lfs_file_write(fs_, &file.f, ciphertext.data(), data_len);
-        if (written != static_cast<lfs_ssize_t>(data_len)) {
-            return LFS_ERR_IO;
+    // Write data
+    if (!data_filed.empty()) {
+        written = lfs_file_write(fs_, &file.f, data_filed.data(), data_filed.size());
+        if (written != static_cast<lfs_ssize_t>(data_filed.size())) {
+            return Error::IoError;
         }
+        // data filed include auth tag, write trailer magic only
+        lfs_file_write(fs_, &file.f, &trailer.trailer_magic, sizeof(trailer.trailer_magic));
     }
-
-    // Write trailer
-    written = lfs_file_write(fs_, &file.f, &trailer, sizeof(trailer));
-    if (written != sizeof(trailer)) {
-        return LFS_ERR_IO;
+    else {
+        // Write trailer with empty tag
+        lfs_file_write(fs_, &file.f, &trailer, sizeof(trailer));
     }
 
     // Sync to ensure data is persisted
     err = lfs_file_sync(fs_, &file.f);
     if (err < 0) {
+        return Error::IoError;
+    }
+
+    return Error::Ok;
+}
+
+VaultDatabaseV1::Error VaultDatabaseV1::Append(std::string_view name, const std::span<const uint8_t>& data,
+                                               uint32_t& entity_id) {
+    if (!unlocked_) {
+        return Error::NotUnlocked;
+    }
+    uint32_t offset = 0;
+    entity_id = next_seq_;
+    {
+        // Get current file size (offset where new record will be written)
+        LfsFileGuard file(fs_);
+        int err = file.open(path_.c_str(), LFS_O_RDONLY);
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
+        lfs_soff_t file_size = lfs_file_size(fs_, &file.f);
+        if (file_size < 0) {
+            return Error::IoError;
+        }
+        offset = static_cast<uint32_t>(file_size);
+    }
+    // Write the record
+    auto err = WriteRecord(DbRecordType::New, entity_id, name, data);
+    if (err != Error::Ok) {
         return err;
     }
-
-    return 0;
+    // Update index with the new record offset
+    AddOrUpdateIndex(entity_id, offset);
+    return Error::Ok;
 }
 
-uint32_t VaultDatabaseV1::Append(std::string_view name, const uint8_t* data, size_t len) {
+VaultDatabaseV1::Error VaultDatabaseV1::Remove(uint32_t entity_id) {
     if (!unlocked_) {
-        return 0; // Failure
+        return Error::NotUnlocked;
     }
-
-    uint32_t entity_id = next_seq_;
-    uint32_t seq = next_seq_;
-    next_seq_++;
-
-    int err = WriteRecord(DBRecordType::New, entity_id, seq, name, data, len);
-    if (err < 0) {
-        next_seq_--; // Rollback sequence number on failure
-        return 0;
-    }
-
-    // Update index
-    entity_index_[entity_id] = EntityState{
-        std::string(name),
-        std::vector<uint8_t>(data, data + len)
-    };
-
-    return entity_id;
-}
-
-int VaultDatabaseV1::Remove(uint32_t entity_id) {
-    if (!unlocked_) {
-        return LFS_ERR_INVAL;
-    }
-
-    uint32_t seq = next_seq_;
-    next_seq_++;
-
     // Write a Remove record with empty name and data
-    int err = WriteRecord(DBRecordType::Remove, entity_id, seq, "", nullptr, 0);
-    if (err < 0) {
-        next_seq_--; // Rollback on failure
+    auto err = WriteRecord(DbRecordType::Remove, entity_id, "", {});
+    if (err != Error::Ok) {
         return err;
     }
-
     // Remove from index
-    entity_index_.erase(entity_id);
-
-    return 0;
+    RemoveFromIndex(entity_id);
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::Modify(uint32_t entity_id, const uint8_t* data, size_t len) {
+VaultDatabaseV1::Error VaultDatabaseV1::Modify(uint32_t entity_id, std::string_view name,
+                                               const std::span<const uint8_t>& data) {
     if (!unlocked_) {
-        return LFS_ERR_INVAL;
+        return Error::NotUnlocked;
     }
-
-    // Get current entity state from index
-    auto it = entity_index_.find(entity_id);
-    if (it == entity_index_.end()) {
-        return LFS_ERR_NOENT; // Entity not found
+    // Find entity in index
+    int idx = FindEntityInIndex(entity_id);
+    if (idx < 0) {
+        return Error::NoEntity;
     }
-
-    // Keep the current name, update data only
-    const std::string& current_name = it->second.name;
-
-    // Remove old entry
-    int err = Remove(entity_id);
-    if (err < 0) {
+    uint32_t offset = 0;
+    {
+        // Get current file size (offset where new record will be written)
+        LfsFileGuard file(fs_);
+        int err = file.open(path_.c_str(), LFS_O_RDONLY);
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
+        lfs_soff_t file_size = lfs_file_size(fs_, &file.f);
+        if (file_size < 0) {
+            return Error::IoError;
+        }
+        offset = static_cast<uint32_t>(file_size);
+    }
+    // Write the record
+    auto err = WriteRecord(DbRecordType::New, entity_id, name, data);
+    if (err != Error::Ok) {
         return err;
     }
-
-    // Append new entry with same entity_id, current name, but new data
-    uint32_t seq = next_seq_;
-    next_seq_++;
-
-    err = WriteRecord(DBRecordType::New, entity_id, seq, current_name, data, len);
-    if (err < 0) {
-        next_seq_--; // Rollback on failure
-        return err;
-    }
-
-    // Update index
-    entity_index_[entity_id] = EntityState{
-        current_name,
-        std::vector<uint8_t>(data, data + len)
-    };
-
-    return 0;
+    // Update index with the new record offset
+    AddOrUpdateIndex(entity_id, offset);
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::Modify(uint32_t entity_id, std::string_view name) {
+VaultDatabaseV1::Error VaultDatabaseV1::Read(uint32_t entity_id, const std::span<char>& name,
+                                             const std::span<uint8_t>& data) {
     if (!unlocked_) {
-        return LFS_ERR_INVAL;
+        return Error::NotUnlocked;
     }
-
-    // Get current entity state from index
-    auto it = entity_index_.find(entity_id);
-    if (it == entity_index_.end()) {
-        return LFS_ERR_NOENT; // Entity not found
+    // Find entity in index
+    int idx = FindEntityInIndex(entity_id);
+    if (idx < 0) {
+        return Error::NoEntity;
     }
-
-    // Keep the current data, update name only
-    const std::vector<uint8_t>& current_data = it->second.data;
-
-    // Remove old entry
-    int err = Remove(entity_id);
+    uint32_t offset = entity_index_.at(idx).offset;
+    // Read record header
+    LfsFileGuard file(fs_);
+    int err = file.open(path_.c_str(), LFS_O_RDONLY);
     if (err < 0) {
-        return err;
+        return LfsErrorToError(err);
     }
-
-    // Append new entry with same entity_id, new name, but current data
-    uint32_t seq = next_seq_;
-    next_seq_++;
-
-    err = WriteRecord(DBRecordType::New, entity_id, seq, name,
-                     current_data.data(), current_data.size());
+    err = lfs_file_seek(fs_, &file.f, static_cast<long>(offset), LFS_SEEK_SET);
     if (err < 0) {
-        next_seq_--; // Rollback on failure
-        return err;
+        return LfsErrorToError(err);
     }
-
-    // Update index
-    entity_index_[entity_id] = EntityState{
-        std::string(name),
-        current_data
-    };
-
-    return 0;
-}
-
-int VaultDatabaseV1::Modify(uint32_t entity_id, std::string_view name, const uint8_t* data, size_t len) {
-    if (!unlocked_) {
-        return LFS_ERR_INVAL;
+    RecordHeader rec_header{};
+    lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
+    if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic) {
+        return Error::Corrupt;
     }
-
-    // Check if entity exists
-    auto it = entity_index_.find(entity_id);
-    if (it == entity_index_.end()) {
-        return LFS_ERR_NOENT; // Entity not found
+    // Read name
+    if (!name.empty()) {
+        err = lfs_file_read(fs_, &file.f, name.data(),
+                            std::min<size_t>(rec_header.name_size, name.size()));
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
     }
-
-    // Remove old entry
-    int err = Remove(entity_id);
-    if (err < 0) {
-        return err;
+    // Read data
+    if (!data.empty()) {
+        std::vector<uint8_t> ciphertext;
+        ciphertext.reserve(rec_header.data_size + 16);
+        err = lfs_file_read(fs_, &file.f, ciphertext.data(), ciphertext.size());
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
+        if (auto perr = DecryptData(rec_header, ciphertext, data); perr != Error::Ok) {
+            return perr;
+        }
     }
-
-    // Append new entry with same entity_id but new name and data
-    uint32_t seq = next_seq_;
-    next_seq_++;
-
-    err = WriteRecord(DBRecordType::New, entity_id, seq, name, data, len);
-    if (err < 0) {
-        next_seq_--; // Rollback on failure
-        return err;
-    }
-
-    // Update index
-    entity_index_[entity_id] = EntityState{
-        std::string(name),
-        std::vector<uint8_t>(data, data + len)
-    };
-
-    return 0;
+    return Error::Ok;
 }

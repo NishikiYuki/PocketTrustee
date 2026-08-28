@@ -151,37 +151,6 @@ int _execve(char *name, char **argv, char **env)
   return -1;
 }
 
-unsigned sleep( unsigned seconds )
-{
-  vTaskDelay( pdMS_TO_TICKS( seconds * 1000 ) );
-
-  return 0;
-}
-
-int usleep( useconds_t usec )
-{
-  /* To avoid delaying for less than usec, always round up. */
-  vTaskDelay( pdMS_TO_TICKS( usec / 1000 + ( usec % 1000 != 0 ) ) );
-
-  return 0;
-}
-
-int _gettimeofday(struct timeval *tv, void *tzp)
-{
-  (void)tzp;
-
-  if (tv == NULL) {
-    return -1;
-  }
-
-  uint32_t ms = xTaskGetTickCount();
-
-  tv->tv_sec  = (time_t)(ms / 1000U);
-  tv->tv_usec = (suseconds_t)((ms % 1000U) * 1000U);
-
-  return 0;
-}
-
 // --- Picolibc Specific Section ---
 #if defined(__PICOLIBC__)
 

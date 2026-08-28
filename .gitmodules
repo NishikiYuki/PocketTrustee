@@ -10,3 +10,6 @@
 [submodule "Lib/zcbor"]
 	path = Lib/zcbor
 	url = https://github.com/nordicsemi/zcbor.git
+[submodule "freertos-posix"]
+	path = freertos-posix
+	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX.git
