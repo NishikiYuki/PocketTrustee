@@ -61,22 +61,23 @@ VaultDatabaseV1::Error VaultDatabaseV1::DeriveKeyHMAC(const std::span<const uint
 
     if (status != PSA_SUCCESS) {
         mbedtls_platform_zeroize(mac.data(), mac.size());
+        return Error::CryptoError;
     }
 
-    memcpy(mac.data(), mac_buffer, std::min(sizeof(mac_buffer), mac.size()));
+    memcpy(mac.data(), mac_buffer, std::min(mac_len, mac.size()));
 
     psa_destroy_key(key_id);
     return Error::Ok;
 }
 
-int VaultDatabaseV1::InitializeDatabase(const std::span<const uint8_t>& master_key) {
+VaultDatabaseV1::Error VaultDatabaseV1::InitializeDatabase(const std::span<const uint8_t>& master_key) {
     FileHeader header{};
     header.magic = kDbHeaderMagic;
     header.version = kDbVersion;
 
     // Generate random salt
     if (GenerateRandom(header.salt, sizeof(header.salt)) != 0) {
-        return -1;
+        return Error::CryptoError;
     }
 
     // Derive key check value
@@ -84,27 +85,32 @@ int VaultDatabaseV1::InitializeDatabase(const std::span<const uint8_t>& master_k
     uint8_t salt_check[sizeof(header.salt) + sizeof(check_info)];
     memcpy(salt_check, header.salt, sizeof(header.salt));
     memcpy(salt_check + sizeof(header.salt), check_info, sizeof(check_info));
-    DeriveKeyHMAC(master_key, salt_check, header.key_check);
+    auto perr = DeriveKeyHMAC(master_key, salt_check, header.key_check);
+    if (perr != Error::Ok) {
+        return perr;
+    }
 
     // Compute CRC32 for header (excluding the crc32 field itself)
     header.header_crc32 = ComputeCRC32(reinterpret_cast<const uint8_t*>(&header),
                                        offsetof(FileHeader, header_crc32));
 
+    // Remove previous database if it exists
+    lfs_remove(fs_, path_.c_str());
     // Write header to file
     LfsFileGuard file(fs_);
     int err = file.open(path_.c_str(), LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
     if (err < 0) {
-        return err;
+        return LfsErrorToError(err);
     }
 
     lfs_ssize_t written = lfs_file_write(fs_, &file.f, &header, sizeof(header));
     if (written != sizeof(header)) {
-        return LFS_ERR_IO;
+        return Error::IoError;
     }
 
     err = lfs_file_sync(fs_, &file.f);
     if (err < 0) {
-        return err;
+        return LfsErrorToError(err);
     }
 
     // Derive encrypt key
@@ -112,40 +118,43 @@ int VaultDatabaseV1::InitializeDatabase(const std::span<const uint8_t>& master_k
     uint8_t salt_encrypt[sizeof(header.salt) + sizeof(encrypted_info)];
     memcpy(salt_encrypt, header.salt, sizeof(header.salt));
     memcpy(salt_encrypt + sizeof(header.salt), encrypted_info, sizeof(encrypted_info));
-    DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
+    perr = DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
+    if (perr != Error::Ok) {
+        return perr;
+    }
 
     next_seq_ = 1;
-    return 0;
+    return Error::Ok;
 }
 
-int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
+VaultDatabaseV1::Error VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
     LfsFileGuard file(fs_);
     int err = file.open(path_.c_str(), LFS_O_RDONLY);
     if (err < 0) {
-        return err;
+        return LfsErrorToError(err);
     }
 
     // Read file header
     FileHeader header{};
     lfs_ssize_t read_bytes = lfs_file_read(fs_, &file.f, &header, sizeof(header));
     if (read_bytes != sizeof(header)) {
-        return LFS_ERR_IO;
+        return Error::IoError;
     }
 
     // Verify magic and version
     if (header.magic != kDbHeaderMagic) {
-        return LFS_ERR_CORRUPT;
+        return Error::Corrupt;
     }
 
     if (header.version != kDbVersion) {
-        return LFS_ERR_INVAL;
+        return Error::Corrupt;
     }
 
     // Verify CRC32
     uint32_t computed_crc = ComputeCRC32(reinterpret_cast<const uint8_t*>(&header),
                                          offsetof(FileHeader, header_crc32));
     if (computed_crc != header.header_crc32) {
-        return LFS_ERR_CORRUPT;
+        return Error::Corrupt;
     }
 
     // Verify key
@@ -154,19 +163,21 @@ int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
     uint8_t salt_check[sizeof(header.salt) + sizeof(check_info)];
     memcpy(salt_check, header.salt, sizeof(header.salt));
     memcpy(salt_check + sizeof(header.salt), check_info, sizeof(check_info));
-    DeriveKeyHMAC(master_key, salt_check, expected_key_check);
+    auto perr = DeriveKeyHMAC(master_key, salt_check, expected_key_check);
+    if (perr != Error::Ok) {
+        return perr;
+    }
     if (memcmp(expected_key_check, header.key_check, sizeof(expected_key_check)) != 0) {
-        return LFS_ERR_INVAL; // Wrong key
+        return Error::WrongKey; // Wrong key
     }
 
     // Scan through all records to find the highest sequence number and build index
     entity_index_.clear();
     uint32_t max_seq = 0;
-    uint32_t current_offset = sizeof(FileHeader); // Start after file header
 
     for (;;) {
         // Save current position (start of record)
-        uint32_t record_offset = current_offset;
+        uint32_t record_offset = lfs_file_tell(fs_, &file.f);
 
         RecordHeader rec_header{};
         lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
@@ -174,7 +185,19 @@ int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
             break; // End of file
         }
         if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic) {
-            return LFS_ERR_CORRUPT;
+            return Error::Corrupt;
+        }
+
+        // Skip to tail
+        RecordTrailer tailer{};
+        auto skip_size = static_cast<lfs_soff_t>(rec_header.name_size + rec_header.data_size);
+        err = lfs_file_seek(fs_, &file.f, skip_size, LFS_SEEK_CUR);
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
+        bytes = lfs_file_read(fs_, &file.f, &tailer, sizeof(tailer));
+        if (bytes != sizeof(tailer) || tailer.trailer_magic != kTrailerMagic) {
+            return Error::Corrupt;
         }
 
         // Track maximum sequence number
@@ -192,16 +215,6 @@ int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
             // Remove entity from index
             RemoveFromIndex(rec_header.entity_id);
         }
-
-        // Skip to next record
-        auto skip_size = static_cast<lfs_soff_t>(rec_header.name_size + rec_header.data_size + sizeof(RecordTrailer));
-        err = lfs_file_seek(fs_, &file.f, skip_size, LFS_SEEK_CUR);
-        if (err < 0) {
-            return err;
-        }
-
-        // Update current offset
-        current_offset += sizeof(RecordHeader) + skip_size;
     }
 
     // Derive encrypt key
@@ -209,10 +222,13 @@ int VaultDatabaseV1::LoadDatabase(const std::span<const uint8_t>& master_key) {
     uint8_t salt_encrypt[sizeof(header.salt) + sizeof(encrypted_info)];
     memcpy(salt_encrypt, header.salt, sizeof(header.salt));
     memcpy(salt_encrypt + sizeof(header.salt), encrypted_info, sizeof(encrypted_info));
-    DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
+    perr = DeriveKeyHMAC(master_key, salt_encrypt, encrypt_key_);
+    if (perr != Error::Ok) {
+        return perr;
+    }
 
     next_seq_ = max_seq + 1;
-    return 0;
+    return Error::Ok;
 }
 
 VaultDatabaseV1::Error VaultDatabaseV1::Unlock(const std::span<const uint8_t>& master_key) {
@@ -226,32 +242,25 @@ VaultDatabaseV1::Error VaultDatabaseV1::Unlock(const std::span<const uint8_t>& m
 
     if (err == LFS_ERR_NOENT) {
         // Database doesn't exist, create it
-        err = InitializeDatabase(master_key);
-        if (err < 0) {
-            goto clean;
+        auto perr = InitializeDatabase(master_key);
+        if (perr != Error::Ok) {
+            return perr;
         }
     }
     else if (err == 0) {
         // Database exists, load it
-        err = LoadDatabase(master_key);
-        if (err < 0) {
-            goto clean;
+        auto perr = LoadDatabase(master_key);
+        if (perr != Error::Ok) {
+            return perr;
         }
     }
     else {
         // Error accessing file
-        goto clean;
+        return Error::IoError;
     }
 
     unlocked_ = true;
     return Error::Ok;
-clean:
-    mbedtls_platform_zeroize(encrypt_key_, sizeof(encrypt_key_));
-    // Check for specific error cases
-    if (err == LFS_ERR_INVAL) {
-        return Error::WrongKey;
-    }
-    return LfsErrorToError(err);
 }
 
 void VaultDatabaseV1::Lock() {
@@ -420,7 +429,7 @@ VaultDatabaseV1::Error VaultDatabaseV1::WriteRecord(DbRecordType type, uint32_t 
     LfsFileGuard file(fs_);
     int err = file.open(path_.c_str(), LFS_O_WRONLY | LFS_O_APPEND);
     if (err < 0) {
-        return Error::Exists;
+        return LfsErrorToError(err);
     }
 
     // Write record header
@@ -494,6 +503,11 @@ VaultDatabaseV1::Error VaultDatabaseV1::Remove(uint32_t entity_id) {
     if (!unlocked_) {
         return Error::NotUnlocked;
     }
+    // Find entity in index
+    int idx = FindEntityInIndex(entity_id);
+    if (idx < 0) {
+        return Error::NoEntity;
+    }
     // Write a Remove record with empty name and data
     auto err = WriteRecord(DbRecordType::Remove, entity_id, "", {});
     if (err != Error::Ok) {
@@ -561,7 +575,9 @@ VaultDatabaseV1::Error VaultDatabaseV1::Read(uint32_t entity_id, const std::span
     }
     RecordHeader rec_header{};
     lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
-    if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic) {
+    if (bytes != sizeof(rec_header) ||
+        rec_header.magic != kRecordHeaderMagic ||
+        rec_header.entity_id != entity_id) {
         return Error::Corrupt;
     }
     // Read name
@@ -573,11 +589,14 @@ VaultDatabaseV1::Error VaultDatabaseV1::Read(uint32_t entity_id, const std::span
         }
     }
     // Read data
+    lfs_file_seek(fs_, &file.f,
+                  static_cast<long>(offset + sizeof(rec_header) + rec_header.name_size),
+                  LFS_SEEK_SET);
     if (!data.empty()) {
         std::vector<uint8_t> ciphertext;
         ciphertext.reserve(rec_header.data_size + 16);
-        err = lfs_file_read(fs_, &file.f, ciphertext.data(), ciphertext.size());
-        if (err < 0) {
+        err = lfs_file_read(fs_, &file.f, ciphertext.data(), rec_header.data_size + 16);
+        if (err != rec_header.data_size + 16) {
             return LfsErrorToError(err);
         }
         if (auto perr = DecryptData(rec_header, ciphertext, data); perr != Error::Ok) {

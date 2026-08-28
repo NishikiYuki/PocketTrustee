@@ -9,8 +9,8 @@
 namespace PocketTrustee {
     class VaultDatabaseV1 {
     public:
-        VaultDatabaseV1(lfs_t* fs, lfs_config* disk, std::string_view path) :
-            fs_(fs), disk_(disk), path_(path), unlocked_(false), next_seq_(1) {
+        VaultDatabaseV1(lfs_t* fs, std::string_view path) :
+            fs_(fs), path_(path), unlocked_(false), next_seq_(1) {
             entity_index_.reserve(32);
         }
 
@@ -98,7 +98,6 @@ namespace PocketTrustee {
         };
 
         lfs_t* fs_;
-        lfs_config* disk_;
         std::string path_;
 
         uint8_t encrypt_key_[32]{};
@@ -117,17 +116,17 @@ namespace PocketTrustee {
         static Error LfsErrorToError(int lfs_err);
 
         // Initialize a new database file
-        int InitializeDatabase(const std::span<const uint8_t>& master_key);
+        Error InitializeDatabase(const std::span<const uint8_t>& master_key);
 
         // Verify the database file and load metadata
-        int LoadDatabase(const std::span<const uint8_t>& master_key);
+        Error LoadDatabase(const std::span<const uint8_t>& master_key);
 
         // Write a record to the database
         Error WriteRecord(DbRecordType type, uint32_t entity_id,
                           std::string_view name, const std::span<const uint8_t>& data);
 
         // Encrypt data using AES-256-GCM
-        // Tag is followed by ciphertext
+        // Tag follows with ciphertext
         Error EncryptData(const RecordHeader& header, const std::span<const uint8_t>& plaintext,
                           const std::span<uint8_t>& ciphertext);
 
