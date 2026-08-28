@@ -1,16 +1,15 @@
 #ifndef POCKETTRUSTEE_APP_VAULT_HPP
 #define POCKETTRUSTEE_APP_VAULT_HPP
 
-#include "app_ptt_utility.hpp"
 #include <span>
-#include <vector>
 #include <string>
+#include <vector>
+#include "app_ptt_utility.hpp"
 
 namespace PocketTrustee {
     class VaultDatabaseV1 {
     public:
-        VaultDatabaseV1(lfs_t* fs, std::string_view path) :
-            fs_(fs), path_(path), unlocked_(false), next_seq_(1) {
+        VaultDatabaseV1(lfs_t* fs, std::string_view path) : fs_(fs), path_(path), unlocked_(false), next_seq_(1) {
             entity_index_.reserve(32);
         }
 
@@ -51,7 +50,8 @@ namespace PocketTrustee {
         // Modify both entry name and data
         Error Modify(uint32_t entity_id, std::string_view name, const std::span<const uint8_t>& data);
 
-        Error Read(uint32_t entity_id, const std::span<char>& name, const std::span<uint8_t>& data);
+        // Read entry name and data; name is fully read into the string
+        Error Read(uint32_t entity_id, std::string& name, const std::span<uint8_t>& data);
 
     private:
         static constexpr uint32_t kDbHeaderMagic = 0x56444231;
@@ -60,10 +60,7 @@ namespace PocketTrustee {
         static constexpr uint32_t kDbVersion = 1;
 
         // Record type enumeration
-        enum class DbRecordType : uint16_t {
-            New,
-            Remove
-        };
+        enum class DbRecordType : uint16_t { New, Remove };
 
         // Database file header
         struct __attribute__((packed)) FileHeader {
@@ -122,16 +119,16 @@ namespace PocketTrustee {
         Error LoadDatabase(const std::span<const uint8_t>& master_key);
 
         // Write a record to the database
-        Error WriteRecord(DbRecordType type, uint32_t entity_id,
-                          std::string_view name, const std::span<const uint8_t>& data);
+        Error WriteRecord(DbRecordType type, uint32_t entity_id, std::string_view name,
+                          const std::span<const uint8_t>& data);
 
         // Encrypt data using AES-256-GCM
-        // Tag follows with ciphertext
+        // Ciphertext is followed by tag
         Error EncryptData(const RecordHeader& header, const std::span<const uint8_t>& plaintext,
                           const std::span<uint8_t>& ciphertext);
 
         // Decrypt data using AES-256-GCM
-        // Tag must follow with the ciphertext
+        // Tag must follow the ciphertext
         Error DecryptData(const RecordHeader& header, const std::span<const uint8_t>& ciphertext,
                           const std::span<uint8_t>& plaintext);
 
@@ -141,6 +138,6 @@ namespace PocketTrustee {
         void AddOrUpdateIndex(uint32_t entity_id, uint32_t offset);
         void RemoveFromIndex(uint32_t entity_id);
     };
-}
+} // namespace PocketTrustee
 
-#endif //POCKETTRUSTEE_APP_VAULT_HPP
+#endif // POCKETTRUSTEE_APP_VAULT_HPP
