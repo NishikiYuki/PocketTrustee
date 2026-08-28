@@ -18,7 +18,7 @@ void Crc32Mpeg2::Reset() {
     value_ = 0xFFFFFFFF;
 }
 
-uint32_t Crc32Mpeg2::Continue(uint8_t* p_data, uint32_t size) {
+uint32_t Crc32Mpeg2::Continue(const uint8_t* p_data, uint32_t size) {
     crc32mpeg2_hardware_ready(value_);
     for (uint32_t i = 0; i < size; i++) {
         LL_CRC_FeedData8(CRC, p_data[i]);
