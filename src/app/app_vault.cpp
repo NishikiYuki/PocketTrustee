@@ -555,10 +555,50 @@ VaultDatabaseV1::Error VaultDatabaseV1::Modify(uint32_t entity_id, std::string_v
     return Error::Ok;
 }
 
-VaultDatabaseV1::Error VaultDatabaseV1::Read(uint32_t entity_id, std::string& name, const std::span<uint8_t>& data) {
+VaultDatabaseV1::Error VaultDatabaseV1::ReadData(uint32_t entity_id, const std::span<uint8_t>& data) {
     if (!unlocked_) {
         return Error::NotUnlocked;
     }
+    // Find entity in index
+    int idx = FindEntityInIndex(entity_id);
+    if (idx < 0) {
+        return Error::NoEntity;
+    }
+    uint32_t offset = entity_index_.at(idx).offset;
+    // Read record header
+    LfsFileGuard file(fs_);
+    int err = file.open(path_.c_str(), LFS_O_RDONLY);
+    if (err < 0) {
+        return LfsErrorToError(err);
+    }
+    err = lfs_file_seek(fs_, &file.f, static_cast<long>(offset), LFS_SEEK_SET);
+    if (err < 0) {
+        return LfsErrorToError(err);
+    }
+    RecordHeader rec_header{};
+    lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
+    if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic || rec_header.entity_id != entity_id) {
+        return Error::Corrupt;
+    }
+    err = lfs_file_seek(fs_, &file.f, rec_header.name_size, LFS_SEEK_CUR);
+    if (err < 0) {
+        return LfsErrorToError(err);
+    }
+    // Read data
+    if (!data.empty()) {
+        std::vector<uint8_t> ciphertext(static_cast<size_t>(rec_header.data_size) + 16);
+        bytes = lfs_file_read(fs_, &file.f, ciphertext.data(), ciphertext.size());
+        if (bytes != static_cast<lfs_ssize_t>(ciphertext.size())) {
+            return (bytes < 0) ? LfsErrorToError(bytes) : Error::IoError;
+        }
+        if (auto perr = DecryptData(rec_header, ciphertext, data); perr != Error::Ok) {
+            return perr;
+        }
+    }
+    return Error::Ok;
+}
+
+VaultDatabaseV1::Error VaultDatabaseV1::ReadName(uint32_t entity_id, std::string& name) {
     // Find entity in index
     int idx = FindEntityInIndex(entity_id);
     if (idx < 0) {
@@ -588,16 +628,85 @@ VaultDatabaseV1::Error VaultDatabaseV1::Read(uint32_t entity_id, std::string& na
             return (bytes < 0) ? LfsErrorToError(bytes) : Error::IoError;
         }
     }
-    // Read data
-    if (!data.empty()) {
-        std::vector<uint8_t> ciphertext(static_cast<size_t>(rec_header.data_size) + 16);
-        bytes = lfs_file_read(fs_, &file.f, ciphertext.data(), ciphertext.size());
-        if (bytes != static_cast<lfs_ssize_t>(ciphertext.size())) {
-            return (bytes < 0) ? LfsErrorToError(bytes) : Error::IoError;
+    return Error::Ok;
+}
+
+VaultDatabaseV1::Error VaultDatabaseV1::BuildIndex() {
+    LfsFileGuard file(fs_);
+    int err = file.open(path_.c_str(), LFS_O_RDONLY);
+    if (err < 0) {
+        return LfsErrorToError(err);
+    }
+
+    // Read file header
+    FileHeader header{};
+    lfs_ssize_t read_bytes = lfs_file_read(fs_, &file.f, &header, sizeof(header));
+    if (read_bytes != sizeof(header)) {
+        return Error::IoError;
+    }
+
+    // Verify magic and version
+    if (header.magic != kDbHeaderMagic) {
+        return Error::Corrupt;
+    }
+
+    if (header.version != kDbVersion) {
+        return Error::Corrupt;
+    }
+
+    // Verify CRC32
+    uint32_t computed_crc = ComputeCRC32(reinterpret_cast<const uint8_t*>(&header),
+                                         offsetof(FileHeader, header_crc32));
+    if (computed_crc != header.header_crc32) {
+        return Error::Corrupt;
+    }
+
+    // Scan through all records to find the highest sequence number and build index
+    entity_index_.clear();
+    uint32_t max_seq = 0;
+
+    for (;;) {
+        // Save current position (start of record)
+        uint32_t record_offset = lfs_file_tell(fs_, &file.f);
+
+        RecordHeader rec_header{};
+        lfs_ssize_t bytes = lfs_file_read(fs_, &file.f, &rec_header, sizeof(rec_header));
+        if (bytes == 0) {
+            break; // End of file
         }
-        if (auto perr = DecryptData(rec_header, ciphertext, data); perr != Error::Ok) {
-            return perr;
+        if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic) {
+            return Error::Corrupt;
+        }
+
+        // Skip to tail
+        RecordTrailer tailer{};
+        auto skip_size = static_cast<lfs_soff_t>(rec_header.name_size + rec_header.data_size);
+        err = lfs_file_seek(fs_, &file.f, skip_size, LFS_SEEK_CUR);
+        if (err < 0) {
+            return LfsErrorToError(err);
+        }
+        bytes = lfs_file_read(fs_, &file.f, &tailer, sizeof(tailer));
+        if (bytes != sizeof(tailer) || tailer.trailer_magic != kTrailerMagic) {
+            return Error::Corrupt;
+        }
+
+        // Track maximum sequence number
+        if (rec_header.seq > max_seq) {
+            max_seq = rec_header.seq;
+        }
+
+        // Update index based on record type
+        auto type = static_cast<DbRecordType>(rec_header.type);
+        if (type == DbRecordType::New) {
+            // Add or update entity in index with current record offset
+            AddOrUpdateIndex(rec_header.entity_id, record_offset);
+        }
+        else if (type == DbRecordType::Remove) {
+            // Remove entity from index
+            RemoveFromIndex(rec_header.entity_id);
         }
     }
+
+    next_seq_ = max_seq + 1;
     return Error::Ok;
 }

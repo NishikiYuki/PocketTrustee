@@ -35,6 +35,12 @@ namespace PocketTrustee {
             size_t size;
         };
 
+        // Index section storing entity location in file
+        struct IdxSection {
+            uint32_t entity_id;
+            uint32_t offset; // File offset to the record header
+        };
+
         // Unlock database with master key
         Error Unlock(const std::span<const uint8_t>& master_key);
 
@@ -51,7 +57,13 @@ namespace PocketTrustee {
         Error Modify(uint32_t entity_id, std::string_view name, const std::span<const uint8_t>& data);
 
         // Read entry name and data; name is fully read into the string
-        Error Read(uint32_t entity_id, std::string& name, const std::span<uint8_t>& data);
+        Error ReadData(uint32_t entity_id, const std::span<uint8_t>& data);
+
+        Error ReadName(uint32_t entity_id, std::string& name);
+
+        Error BuildIndex();
+
+        std::span<const IdxSection> GetEntityIndex() { return entity_index_; }
 
     private:
         static constexpr uint32_t kDbHeaderMagic = 0x56444231;
@@ -86,12 +98,6 @@ namespace PocketTrustee {
         struct __attribute__((packed)) RecordTrailer {
             uint8_t auth_tag[16]; // GCM authentication tag
             uint32_t trailer_magic; // Trailer magic for integrity
-        };
-
-        // Index section storing entity location in file
-        struct IdxSection {
-            uint32_t entity_id;
-            uint32_t offset; // File offset to the record header
         };
 
         lfs_t* fs_;

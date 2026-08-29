@@ -1,5 +1,6 @@
 #include "app_ptt.hpp"
 #include "usbd_core.h"
+#include "mbedtls/platform_util.h"
 // Inject low layer device here
 #include "ll_epaper.hpp"
 #include "ll_clock.hpp"
@@ -27,6 +28,10 @@ PocketTrustee::App& PocketTrustee::App::InitOrGetApp() {
 }
 
 using namespace PocketTrustee;
+
+KeyGuard::~KeyGuard() {
+    mbedtls_platform_zeroize(key, sizeof(key));
+}
 
 App::App(guiv2::Gui& gui, lfs_config* disk_, Device::IRtcDevice& rtc_, Device::ITrng& rng_) :
     Gui(gui), Disk(disk_), Rtc(rtc_), Rng(rng_) {

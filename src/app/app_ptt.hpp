@@ -24,6 +24,11 @@ namespace PocketTrustee::Device {
 }
 
 namespace PocketTrustee {
+    struct KeyGuard {
+        ~KeyGuard();
+        uint8_t key[32];
+    };
+
     class App final {
         App(
             guiv2::Gui& gui,
@@ -55,6 +60,8 @@ namespace PocketTrustee {
     private:
         Device::IUsbDevice * usb_device_{};
         std::vector<const void*> token_promises_;
+
+        uint8_t master_key_[32]{};
     };
 }
 
