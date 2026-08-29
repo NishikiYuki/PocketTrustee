@@ -29,6 +29,78 @@ void Button::OnRender(Scheme& window, Window& parent) {
                 Point2u::CenterOrientedOrigin(len, 16, Point2u::Center(Rect.origin, pos2)));
 }
 
+void CheckBox::OnRender(Scheme& window, Window& parent) {
+    constexpr size_t kMarkSize = 8;
+    constexpr size_t kTextGap = 4;
+    const auto pos2 = Rect.origin + Point2u{Rect.width, Rect.height};
+    const auto mark_origin = Rect.origin + Point2u{4, 4};
+    const auto mark_end = mark_origin + Point2u{kMarkSize, kMarkSize};
+    window.Border(mark_origin, mark_end, 0);
+    if (Checked)
+        window.Fill({mark_origin.x + 1, mark_origin.y + 1}, {mark_end.x - 1, mark_end.y - 1}, 0);
+    window.Text(Text, base_font::Ascii1608::Get(), {mark_end.x + kTextGap, Rect.origin.y});
+    if (focused_)
+        window.Border(Rect.origin, pos2, 0, 1);
+}
+
+bool CheckBox::OnEvent(const UiEvent& event, Window& parent) {
+    if (event.bEvent != UiEvent::BasicEnter)
+        return false;
+    Checked = !Checked;
+    if (OnChanged)
+        OnChanged(Checked);
+    parent.Invalidate();
+    return true;
+}
+
+void NumberSelector::OnRender(Scheme& window, Window& parent) {
+    const auto pos2 = Rect.origin + Point2u{Rect.width, Rect.height};
+    char value_text[4]{};
+    size_t value_length = 1;
+    if (Value >= 100) {
+        value_text[0] = static_cast<char>('0' + Value / 100);
+        value_text[1] = static_cast<char>('0' + (Value / 10) % 10);
+        value_text[2] = static_cast<char>('0' + Value % 10);
+        value_length = 3;
+    }
+    else if (Value >= 10) {
+        value_text[0] = static_cast<char>('0' + Value / 10);
+        value_text[1] = static_cast<char>('0' + Value % 10);
+        value_length = 2;
+    }
+    else {
+        value_text[0] = static_cast<char>('0' + Value);
+    }
+
+    window.Text(Text, base_font::Ascii1608::Get(), Rect.origin);
+    window.Text(std::string_view{value_text, value_length}, base_font::Ascii1608::Get(),
+                {Rect.origin.x + Text.size() * 8, Rect.origin.y});
+    if (editing_)
+        window.Invert(Rect.origin, pos2);
+    if (focused_)
+        window.Border(Rect.origin, pos2, 0, 1);
+}
+
+bool NumberSelector::OnEvent(const UiEvent& event, Window& parent) {
+    if (event.bEvent == UiEvent::BasicEnter) {
+        editing_ = !editing_;
+        parent.Invalidate();
+        return true;
+    }
+    if (!editing_ || (event.bEvent != UiEvent::BasicUp && event.bEvent != UiEvent::BasicDown))
+        return false;
+
+    const auto old_value = Value;
+    if (event.bEvent == UiEvent::BasicUp && Value < Maximum)
+        ++Value;
+    else if (event.bEvent == UiEvent::BasicDown && Value > Minimum)
+        --Value;
+    if (Value != old_value && OnChanged)
+        OnChanged(Value);
+    parent.Invalidate();
+    return true;
+}
+
 void OptionWindow::OnRender(Scheme& scheme) {
     scheme.Clear();
     Window::OnRender(scheme);

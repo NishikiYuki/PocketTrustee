@@ -27,6 +27,33 @@ namespace guiv2::View::Password {
         std::vector<std::string> items_;
         ScrollMenuWindow scroll_wn_;
     };
+
+    class PasswordGenWindow final : public Window {
+    public:
+        PasswordGenWindow(Gui& host, PocketTrustee::App& app);
+        ~PasswordGenWindow() override;
+
+    protected:
+        void OnCreate() override;
+        void OnRender(Scheme& scheme) override;
+
+        void GeneratePassword();
+
+        PocketTrustee::App& app_;
+        std::string password_;
+        bool contain_special_ = false;
+        uint8_t password_length_ = 16;
+
+        ClickArea password_area_;
+        CheckBox special_checkbox_;
+        NumberSelector length_selector_;
+        Button button_back_;
+        Button button_send_;
+        Button button_save_;
+        pointer<Control> control_array_[6]{
+            &password_area_, &special_checkbox_, &length_selector_, &button_back_, &button_send_, &button_save_
+        };
+    };
 }
 
 

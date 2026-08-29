@@ -10,6 +10,13 @@ namespace guiv2::base_font {
 
         static Ascii1608& Get();
     };
+
+    class Digit32 final : public IFont {
+    public:
+        ReadonlyMonoBitMap GetChar(char32_t ch) const override;
+
+        static Digit32& Get();
+    };
 }
 
 #endif //POCKETTRUSTEE_GUI_BASE_FONT_HPP

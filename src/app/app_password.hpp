@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <string>
 #include <span>
-#include <vector>
 
 class PasswordRecord {
 public:

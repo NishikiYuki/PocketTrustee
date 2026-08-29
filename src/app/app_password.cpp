@@ -1,4 +1,5 @@
 #include "app_password.hpp"
+#include <vector>
 #include "psa/crypto.h"
 #include "zcbor_encode.h"
 

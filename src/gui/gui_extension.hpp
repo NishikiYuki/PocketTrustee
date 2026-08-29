@@ -46,6 +46,55 @@ namespace guiv2::extension {
         std::string_view Text;
     };
 
+    class CheckBox final : public Control {
+    public:
+        CheckBox(const WindowRect& rect, std::string_view text, bool checked,
+                 std::move_only_function<void(bool)> changed) :
+            Rect(rect), Text(text), Checked(checked), OnChanged(std::move(changed)) {}
+
+        CheckBox() = default;
+
+        bool IsFocusable() const override { return true; }
+
+        void OnRender(Scheme& window, Window& parent) override;
+        bool OnEvent(const UiEvent& event, Window& parent) override;
+        void OnFocusChanged(bool focused, Window& parent) override { focused_ = focused; }
+
+        WindowRect Rect;
+        std::string_view Text;
+        bool Checked = false;
+        std::move_only_function<void(bool)> OnChanged;
+
+    private:
+        bool focused_ = false;
+    };
+
+    class NumberSelector final : public Control {
+    public:
+        NumberSelector(const WindowRect& rect, std::string_view text, uint8_t value, uint8_t minimum,
+                       uint8_t maximum, std::move_only_function<void(uint8_t)> changed) :
+            Rect(rect), Text(text), Value(value), Minimum(minimum), Maximum(maximum), OnChanged(std::move(changed)) {}
+
+        NumberSelector() = default;
+
+        bool IsFocusable() const override { return true; }
+
+        void OnRender(Scheme& window, Window& parent) override;
+        bool OnEvent(const UiEvent& event, Window& parent) override;
+        void OnFocusChanged(bool focused, Window& parent) override { focused_ = focused; }
+
+        WindowRect Rect;
+        std::string_view Text;
+        uint8_t Value{};
+        uint8_t Minimum{};
+        uint8_t Maximum{};
+        std::move_only_function<void(uint8_t)> OnChanged;
+
+    private:
+        bool focused_ = false;
+        bool editing_ = false;
+    };
+
     class OptionWindow final : public Window {
     public:
         OptionWindow(Gui& host, const WindowRect& rect, std::string_view title, std::string_view text,

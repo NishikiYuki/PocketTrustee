@@ -4,6 +4,7 @@
 #include "main.h"
 #include "task.h"
 #include "view_home.hpp"
+#include "psa/crypto.h"
 
 namespace {
     PocketTrustee::App* app_ = nullptr;
@@ -19,10 +20,11 @@ void HAL_Delay(uint32_t Delay) { vTaskDelay(Delay); }
 
 void StartDefaultTask(void const*) {
     DEBUG_INFO("RTOS Entrance");
+    psa_crypto_init();
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
     app_ = &app;
-    ShellSocket::GetInstance().Start();
+    // ShellSocket::GetInstance().Start();
     app.Gui.OpenWindow(std::make_unique<guiv2::View::Home::HomeWindow>(app.Gui, app));
     app.Gui.Start(nullptr);
 }
