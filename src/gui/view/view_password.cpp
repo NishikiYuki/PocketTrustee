@@ -29,6 +29,7 @@ void PasswordWindow::ClickCallback(int n) {
         // However, the window keep alive after open a new window, no need to defer
         auto wn = std::make_unique<PasswordGenWindow>(gui_, app_);
         wn->OnClose = [this] { SyncWithDatabase(); };
+        gui_.OpenWindow(std::move(wn));
     }
 }
 
@@ -59,7 +60,7 @@ fail:
         return std::make_unique<InfoWindow>(
             *gui, WindowRect{{84, 16}, 128, 96},
             "Database index build failed!",
-            [&] {
+            [=] {
                 gui->OpenWindowDeferred([=] {
                     return std::make_unique<Home::HomeWindow>(*gui, *app);
                 });
