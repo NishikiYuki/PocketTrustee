@@ -16,6 +16,34 @@ PasswordWindow::PasswordWindow(Gui& host, PocketTrustee::App& app) :
 }
 
 void PasswordWindow::OnCreate() {
+    auto err = app_.PasswordVault.BuildIndex();
+    auto index = app_.PasswordVault.GetEntityIndex();
+    if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
+        goto fail;
+    }
+    for (auto& item : index) {
+        std::string name;
+        err = app_.PasswordVault.ReadName(item.entity_id, name);\
+        if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
+            goto fail;
+        }
+        if (!name.empty()) {
+            items_.push_back(name);
+        }
+    }
+    return;
+fail:
+    Close();
+    gui_.OpenWindowDeferred([gui = &gui_, app = &app_] {
+        return std::make_unique<InfoWindow>(
+            *gui, WindowRect{{84, 16}, 128, 96},
+            "Database index build failed!",
+            [&] {
+                gui->OpenWindowDeferred([=] {
+                    return std::make_unique<Home::HomeWindow>(*gui, *app);
+                });
+            });
+    });
 }
 
 void PasswordWindow::ClickCallback(int n) {
@@ -61,7 +89,8 @@ PasswordGenWindow::PasswordGenWindow(Gui& host, PocketTrustee::App& app) :
 
     button_save_.Rect = {{124, 76}, 42, 16};
     button_save_.Text = "Save";
-    button_save_.OnClick = [] {};
+    button_save_.OnClick = [] {
+    };
 
     SetControls(control_array_);
 }

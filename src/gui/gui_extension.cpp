@@ -110,6 +110,13 @@ void OptionWindow::OnRender(Scheme& scheme) {
     scheme.Text(Text, base_font::Ascii1608::Get(), {2, 19});
 }
 
+void InfoWindow::OnRender(Scheme& scheme) {
+    scheme.Clear();
+    Window::OnRender(scheme);
+    scheme.Border();
+    scheme.Text(Text, base_font::Ascii1608::Get(), {2, 1});
+}
+
 size_t ScrollMenuWindow::CountGlyphs(std::string_view text) {
     size_t count = 0;
     for (size_t index = 0; index < text.size();) {

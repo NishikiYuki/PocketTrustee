@@ -127,6 +127,36 @@ namespace guiv2::extension {
         }
     };
 
+    class InfoWindow final : public Window {
+    public:
+        InfoWindow(Gui& host, const WindowRect& rect, std::string_view text,
+                   std::move_only_function<void()> callback) :
+            Window(host, rect), Text(text), Callback(std::move(callback)),
+            button({}, "Ok", [this] { CallbackForward(); }) {
+            constexpr size_t kButtonWidth = 20;
+            constexpr size_t kButtonHeight = 12;
+            const auto button_x = rect_.width > kButtonWidth ? (rect_.width - kButtonWidth) / 2 : 0;
+            const auto button_y = rect_.height > 24 ? rect_.height - 24 : 0;
+            button.Rect = {Point2u{button_x, button_y}, kButtonWidth, kButtonHeight};
+            SetControls(control_array);
+        }
+
+        std::string_view Text;
+        std::move_only_function<void()> Callback;
+
+    protected:
+        void OnRender(Scheme& scheme) override;
+
+        Button button;
+        Control* control_array[1]{&button};
+
+        void CallbackForward() {
+            if (Callback)
+                Callback();
+            Close();
+        }
+    };
+
     class ScrollMenuWindow final : public Window {
     public:
         ScrollMenuWindow(Gui& host, const WindowRect& rect, std::span<const std::string> items,

@@ -34,14 +34,23 @@ KeyGuard::~KeyGuard() {
 }
 
 App::App(guiv2::Gui& gui, lfs_config* disk_, Device::IRtcDevice& rtc_, Device::ITrng& rng_) :
-    Gui(gui), Disk(disk_), Rtc(rtc_), Rng(rng_) {
+    Gui(gui), Disk(disk_), Rtc(rtc_), Rng(rng_),
+    PasswordVault(&Lfs, "pwd.db") {
+    // mount disk
     if (lfs_mount(&Lfs, Disk) != LFS_ERR_OK &&
         lfs_format(&Lfs, Disk) != LFS_ERR_OK &&
         lfs_mount(&Lfs, Disk) != LFS_ERR_OK) {
         DEBUG_ERROR("Fail to mount disk");
         Error_Handler();
     }
+    // reserve promise cache
     token_promises_.reserve(8);
+    // build vault
+    auto err = PasswordVault.Unlock(master_key_);
+    if (err != VaultDatabaseV1::Error::Ok) {
+        DEBUG_ERROR("Fail to build password vault: %d", err);
+    }
+    PasswordVault.Lock();
     DEBUG_INFO("App constructed");
 }
 

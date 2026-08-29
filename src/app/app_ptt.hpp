@@ -2,6 +2,7 @@
 #define POCKETTRUSTEE_APP_PTT_HPP
 
 #include "app_ptt_utility.hpp"
+#include "app_vault.hpp"
 #include "guiv2.hpp"
 
 namespace PocketTrustee::Device {
@@ -57,6 +58,8 @@ namespace PocketTrustee {
 
         Device::IRtcDevice& Rtc;
         Device::ITrng& Rng;
+
+        VaultDatabaseV1 PasswordVault;
     private:
         Device::IUsbDevice * usb_device_{};
         std::vector<const void*> token_promises_;
