@@ -29,10 +29,6 @@ PocketTrustee::App& PocketTrustee::App::InitOrGetApp() {
 
 using namespace PocketTrustee;
 
-KeyGuard::~KeyGuard() {
-    mbedtls_platform_zeroize(key, sizeof(key));
-}
-
 App::App(guiv2::Gui& gui, lfs_config* disk_, Device::IRtcDevice& rtc_, Device::ITrng& rng_) :
     Gui(gui), Disk(disk_), Rtc(rtc_), Rng(rng_),
     PasswordVault(&Lfs, "pwd.db") {
@@ -47,9 +43,7 @@ App::App(guiv2::Gui& gui, lfs_config* disk_, Device::IRtcDevice& rtc_, Device::I
     token_promises_.reserve(8);
     // build vault
     auto err = PasswordVault.Unlock(master_key_);
-    if (err != VaultDatabaseV1::Error::Ok) {
-        DEBUG_ERROR("Fail to build password vault: %d", err);
-    }
+    DEBUG_ASSERT(err == VaultDatabaseV1::Error::Ok);
     PasswordVault.Lock();
     DEBUG_INFO("App constructed");
 }
@@ -86,4 +80,12 @@ void App::PopUsbDevice() {
         DisposeActiveToken(usb_device_);
         usb_device_ = nullptr;
     }
+}
+
+std::optional<DisposeGuard> App::GetPasswordVaultUnlocked() {
+    auto err = PasswordVault.Unlock(master_key_);
+    if (err == VaultDatabaseV1::Error::Ok) {
+        return DisposeGuard{[this]{PasswordVault.Lock();}};
+    }
+    return std::nullopt;
 }

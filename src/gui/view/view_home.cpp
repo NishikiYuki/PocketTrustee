@@ -22,10 +22,7 @@ HomeWindow::HomeWindow(Gui& host, PocketTrustee::App& app) :
 
 void HomeWindow::OnCreate() {
     PocketTrustee::LfsFileGuard file{&app_.Lfs};
-    if (file.open(ResPath.data(), LFS_O_RDONLY) != LFS_ERR_OK) {
-        DEBUG_ERROR("failed to open /gui/home");
-        return;
-    }
+    DEBUG_ASSERT(file.open(ResPath.data(), LFS_O_RDONLY) == LFS_ERR_OK);
     auto buffer = res_.getBuffer();
     lfs_file_read(file.lfs, &file.f, buffer.data(), buffer.size());
     gui_.Invalidate(true);

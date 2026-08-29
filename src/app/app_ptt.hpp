@@ -25,9 +25,22 @@ namespace PocketTrustee::Device {
 }
 
 namespace PocketTrustee {
-    struct KeyGuard {
-        ~KeyGuard();
-        uint8_t key[32];
+    struct DisposeGuard {
+        ~DisposeGuard() { if (dispose_) dispose_(); }
+        DisposeGuard(const DisposeGuard&) = delete;
+        DisposeGuard& operator=(const DisposeGuard&) = delete;
+
+        DisposeGuard(DisposeGuard&& d) noexcept {
+            dispose_ = std::move(d.dispose_);
+        }
+
+    private:
+        friend class App;
+
+        explicit DisposeGuard(std::move_only_function<void()> f) : dispose_(std::move(f)) {
+        };
+
+        std::move_only_function<void()> dispose_;
     };
 
     class App final {
@@ -46,11 +59,13 @@ namespace PocketTrustee {
 
         // To better manager the sleep behaviour, tasks now can take or dispose active token
         // Once no task have token, system is allowed to enter sleep mode
-        void TakeActiveToken(const void * promise);
-        void DisposeActiveToken(const void * promise);
+        void TakeActiveToken(const void* promise);
+        void DisposeActiveToken(const void* promise);
 
         bool RegisterUsbDevice(Device::IUsbDevice* device);
         void PopUsbDevice();
+
+        std::optional<DisposeGuard> GetPasswordVaultUnlocked();
 
         guiv2::Gui& Gui;
         lfs_t Lfs{};
@@ -60,8 +75,9 @@ namespace PocketTrustee {
         Device::ITrng& Rng;
 
         VaultDatabaseV1 PasswordVault;
+
     private:
-        Device::IUsbDevice * usb_device_{};
+        Device::IUsbDevice* usb_device_{};
         std::vector<const void*> token_promises_;
 
         uint8_t master_key_[32]{};

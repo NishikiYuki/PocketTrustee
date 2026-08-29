@@ -22,6 +22,8 @@ namespace guiv2::View::Password {
 
         void ClickCallback(int n);
 
+        void SyncWithDatabase();
+
         PocketTrustee::App& app_;
 
         std::vector<std::string> items_;
@@ -32,6 +34,9 @@ namespace guiv2::View::Password {
     public:
         PasswordGenWindow(Gui& host, PocketTrustee::App& app);
         ~PasswordGenWindow() override;
+
+        // Used to notify the parent to update its datebase;
+        std::move_only_function<void()> OnClose;
 
     protected:
         void OnCreate() override;

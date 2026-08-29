@@ -17,6 +17,10 @@ set(MBEDTLS_USER_CONFIG_FILE
     ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls_user_config.h
     CACHE FILEPATH "Mbed TLS user configuration" FORCE
 )
+set(MBEDTLS_CONFIG_FILE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Lib/mbedtls/configs/config-symmetric-only.h
+    CACHE FILEPATH "Mbed TLS base configuration" FORCE
+)
 set(TF_PSA_CRYPTO_USER_CONFIG_FILE
     ${CMAKE_CURRENT_SOURCE_DIR}/mbedtls_user_config.h
     CACHE FILEPATH "TF-PSA-Crypto user configuration" FORCE

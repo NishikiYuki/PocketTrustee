@@ -25,6 +25,7 @@ PasswordRecord PasswordRecord::Generate(const GenerateConfig& config) {
 
 bool PasswordRecord::Serialize(const std::span<uint8_t>& buffer, size_t& size) const {
     ZCBOR_STATE_E(state, 2, buffer.data(), buffer.size(), 1);
+    size = 0;
     bool success = zcbor_list_start_encode(state, 3);
     if (!success) return false;
     success = zcbor_tstr_put_term(state, Name.c_str(), Name.length());

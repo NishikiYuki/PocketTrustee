@@ -1,8 +1,8 @@
 #include "FreeRTOS.h"
+#include "task.h"
 #include "app_ptt.hpp"
 #include "app_shell.hpp"
 #include "main.h"
-#include "task.h"
 #include "view_home.hpp"
 #include "psa/crypto.h"
 

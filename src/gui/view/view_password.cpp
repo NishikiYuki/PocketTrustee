@@ -9,13 +9,33 @@ using namespace guiv2::View::Password;
 PasswordWindow::PasswordWindow(Gui& host, PocketTrustee::App& app) :
     Window(host, WindowRect{{}, host.Width(), host.Height()}), app_(app),
     scroll_wn_(host, rect_, items_, [this](int n) { ClickCallback(n); }) {
-    items_.reserve(8);
-    items_.emplace_back("< Back");
-    items_.emplace_back("+ New");
-    scroll_wn_.SetItems(items_);
 }
 
 void PasswordWindow::OnCreate() {
+    items_.reserve(8);
+    SyncWithDatabase();
+}
+
+void PasswordWindow::ClickCallback(int n) {
+    if (n == 0) {
+        Close();
+        // The window it self has been close, use deferred version
+        gui_.OpenWindowDeferred(
+            [host = &gui_, app = &app_] {
+                return std::make_unique<Home::HomeWindow>(*host, *app);
+            });
+    }
+    else if (n == 1) {
+        // However, the window keep alive after open a new window, no need to defer
+        auto wn = std::make_unique<PasswordGenWindow>(gui_, app_);
+        wn->OnClose = [this] { SyncWithDatabase(); };
+    }
+}
+
+void PasswordWindow::SyncWithDatabase() {
+    items_.clear();
+    items_.emplace_back("< Back");
+    items_.emplace_back("+ New");
     auto err = app_.PasswordVault.BuildIndex();
     auto index = app_.PasswordVault.GetEntityIndex();
     if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
@@ -31,6 +51,7 @@ void PasswordWindow::OnCreate() {
             items_.push_back(name);
         }
     }
+    scroll_wn_.SetItems(items_);
     return;
 fail:
     Close();
@@ -44,22 +65,6 @@ fail:
                 });
             });
     });
-}
-
-void PasswordWindow::ClickCallback(int n) {
-    if (n == 0) {
-        Close();
-        gui_.OpenWindowDeferred(
-            [host = &gui_, app = &app_] {
-                return std::make_unique<Home::HomeWindow>(*host, *app);
-            });
-    }
-    else if (n == 1) {
-        gui_.OpenWindowDeferred(
-            [host = &gui_, app = &app_] {
-                return std::make_unique<PasswordGenWindow>(*host, *app);
-            });
-    }
 }
 
 PasswordGenWindow::PasswordGenWindow(Gui& host, PocketTrustee::App& app) :
@@ -89,7 +94,40 @@ PasswordGenWindow::PasswordGenWindow(Gui& host, PocketTrustee::App& app) :
 
     button_save_.Rect = {{124, 76}, 42, 16};
     button_save_.Text = "Save";
-    button_save_.OnClick = [] {
+    button_save_.OnClick = [this] {
+        Close();
+        auto guard = app_.GetPasswordVaultUnlocked();
+        if (guard.has_value()) {
+            PasswordRecord record;
+            auto t = PocketTrustee::DateTime::FromUnixTime(app_.Rtc.GetCount());
+            char name[32];
+            sprintf(name, "New %u-%u %u:%u", t.month, t.day, t.hour, t.minute);
+            record.Name = name;
+            record.Password = password_;
+            // serilize
+            std::vector<uint8_t> serialize_buffer(128);
+            size_t actual_size;
+            record.Serialize(serialize_buffer, actual_size);
+            uint32_t entity_id;
+            auto err = app_.PasswordVault.Append(
+                record.Name, {serialize_buffer.data(), actual_size}, entity_id);
+            if (actual_size != 0 && err == PocketTrustee::VaultDatabaseV1::Error::Ok) {
+                // save success
+                gui_.OpenWindowDeferred([gui = &gui_] {
+                    return std::make_unique<InfoWindow>(
+                        *gui, WindowRect{{84, 16}, 128, 96},
+                        "Saved!",
+                        nullptr);
+                });
+                return;
+            }
+        }
+        gui_.OpenWindowDeferred([gui = &gui_] {
+            return std::make_unique<InfoWindow>(
+                *gui, WindowRect{{84, 16}, 128, 96},
+                "Save failed!",
+                nullptr);
+        });
     };
 
     SetControls(control_array_);
@@ -97,6 +135,7 @@ PasswordGenWindow::PasswordGenWindow(Gui& host, PocketTrustee::App& app) :
 
 PasswordGenWindow::~PasswordGenWindow() {
     app_.PopUsbDevice();
+    if (OnClose) OnClose();
 }
 
 void PasswordGenWindow::OnCreate() {
