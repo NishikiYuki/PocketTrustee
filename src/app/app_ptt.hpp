@@ -3,7 +3,6 @@
 
 #include "app_ptt_utility.hpp"
 #include "guiv2.hpp"
-#include "driver_usb.hpp"
 
 namespace PocketTrustee::Device {
     struct IRtcDevice {
@@ -16,6 +15,12 @@ namespace PocketTrustee::Device {
         virtual ~ITrng() = default;
         virtual uint32_t Gen() = 0;
     };
+
+    class IUsbDevice {
+    public:
+        virtual ~IUsbDevice() = default;
+        virtual void Config() = 0;
+    };
 }
 
 namespace PocketTrustee {
@@ -23,7 +28,6 @@ namespace PocketTrustee {
         App(
             guiv2::Gui& gui,
             lfs_config* disk_,
-            DeviceUsb& usb_,
             Device::IRtcDevice& rtc_,
             Device::ITrng& rng_
         );
@@ -39,14 +43,17 @@ namespace PocketTrustee {
         void TakeActiveToken(const void * promise);
         void DisposeActiveToken(const void * promise);
 
+        bool RegisterUsbDevice(Device::IUsbDevice* device);
+        void PopUsbDevice();
+
         guiv2::Gui& Gui;
         lfs_t Lfs{};
         lfs_config* Disk;
-        DeviceUsb& Usb;
 
         Device::IRtcDevice& Rtc;
         Device::ITrng& Rng;
     private:
+        Device::IUsbDevice * usb_device_{};
         std::vector<const void*> token_promises_;
     };
 }

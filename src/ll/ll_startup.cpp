@@ -4,7 +4,6 @@
 #include "main.h"
 #include "task.h"
 #include "view_home.hpp"
-#include "view_startup.hpp"
 
 namespace {
     PocketTrustee::App* app_ = nullptr;

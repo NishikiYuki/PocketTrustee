@@ -1,12 +1,11 @@
 #ifndef POCKETTRUSTEE_USB_IMP_ACM_HPP
 #define POCKETTRUSTEE_USB_IMP_ACM_HPP
 
-#include "driver_usb.hpp"
-#include <cstdint>
+#include "app_ptt.hpp"
 #include <functional>
 #include <span>
 
-class UsbAcmDevice final : public IUsbDevice {
+class UsbAcmDevice final : public PocketTrustee::Device::IUsbDevice {
     UsbAcmDevice();
 public:
     UsbAcmDevice(const UsbAcmDevice&) = delete;

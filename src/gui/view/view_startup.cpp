@@ -2,6 +2,7 @@
 #include "gui_base_font.hpp"
 #include "gui_extension.hpp"
 #include "app_ptt.hpp"
+#include "usb_imp_hid.hpp"
 
 using namespace guiv2::View::Startup;
 
@@ -91,39 +92,9 @@ void StartupWindow::OnRender(Scheme& scheme) {
 
 void StartupWindow::OnEvent(const UiEvent& event) {
     if (event.bEvent == UiEvent::BasicEnter) {
-        WindowRect rect = {
-            Point2u::CenterOrientedOrigin(128, 96, {rect_.width / 2, rect_.height / 2}),
-            128,
-            96,
-        };
-        auto callback = [this, rect](int n) {
-            std::string_view t;
-            if (n == 1) {
-                t = "Ok";
-            }
-            else {
-                t = "Cancel";
-            }
-            auto wn = std::make_unique<extension::OptionWindow>(
-                gui_,
-                rect,
-                "Clicked!",
-                t,
-                "Ok",
-                "Cancel",
-                nullptr
-            );
-            gui_.OpenWindow(std::move(wn));
-        };
-        auto wn = std::make_unique<extension::OptionWindow>(
-            gui_,
-            rect,
-            "Hello",
-            "Hello World!",
-            "Ok",
-            "Cancel",
-            std::move(callback)
-        );
-        gui_.OpenWindow(std::move(wn));
+        auto& usb = UsbHidDevice::GetInstance();
+        for (char c = ' '; c <= '~'; c++) {
+            usb.TypeChar(c);
+        }
     }
 }
