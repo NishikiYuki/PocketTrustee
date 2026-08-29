@@ -1,7 +1,11 @@
 #ifndef POCKETTRUSTEE_DRIVER_USB_HPP
 #define POCKETTRUSTEE_DRIVER_USB_HPP
 
-class IUsbDevice;
+class IUsbDevice {
+public:
+    virtual ~IUsbDevice() = default;
+    virtual void Config() = 0;
+};
 
 class DeviceUsb final {
     DeviceUsb() = default;
@@ -17,12 +21,6 @@ public:
 
 private:
     IUsbDevice * device;
-};
-
-class IUsbDevice {
-public:
-    virtual ~IUsbDevice() = default;
-    virtual void Config() = 0;
 };
 
 #endif //POCKETTRUSTEE_DRIVER_USB_HPP

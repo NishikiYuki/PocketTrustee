@@ -4,7 +4,7 @@
 #include <span>
 #include <string>
 #include <vector>
-#include "app_ptt_utility.hpp"
+#include <lfs.h>
 
 namespace PocketTrustee {
     class VaultDatabaseV1 {

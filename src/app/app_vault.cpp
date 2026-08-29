@@ -1,4 +1,5 @@
 #include "app_vault.hpp"
+#include "app_ptt_utility.hpp"
 #include <cstring>
 #include <mbedtls/platform_util.h>
 #include <psa/crypto.h>

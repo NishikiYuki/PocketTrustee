@@ -14,8 +14,6 @@ namespace {
     constexpr uint16_t kUsbVID = 0xFFFF;
     constexpr uint16_t kUsbPID = 0xFFFF;
 
-    constexpr uint16_t kUsbConfigSize = 9 + CDC_ACM_DESCRIPTOR_LEN;
-
     constexpr uint16_t kCdcMaxMps = 64;
     constexpr uint16_t kRingBufferSize = 256;
 
@@ -70,13 +68,17 @@ namespace {
     usbd_endpoint ep_in{}, ep_out{};
 
     constexpr uint8_t device_descriptor[] = {
-        USB_DEVICE_DESCRIPTOR_INIT(USB_2_0, 0xEF, 0x02, 0x01, kUsbVID, kUsbPID, 0x0100, 0x01)};
+        USB_DEVICE_DESCRIPTOR_INIT(USB_2_0, 0xEF, 0x02, 0x01, kUsbVID, kUsbPID, 0x0200, 0x01)
+    };
 
     constexpr const uint8_t* device_descriptor_callback(uint8_t speed) { return device_descriptor; }
 
+    constexpr uint16_t kUsbConfigSize = 9 + CDC_ACM_DESCRIPTOR_LEN;
+
     constexpr uint8_t config_descriptor[] = {
         USB_CONFIG_DESCRIPTOR_INIT(kUsbConfigSize, 0x02, 0x01, USB_CONFIG_BUS_POWERED, 100),
-        CDC_ACM_DESCRIPTOR_INIT(0x00, kEndpoint_INT, kEndpoint_OUT, kEndpoint_IN, kCdcMaxMps, 0x02)};
+        CDC_ACM_DESCRIPTOR_INIT(0x00, kEndpoint_INT, kEndpoint_OUT, kEndpoint_IN, kCdcMaxMps, 0x02)
+    };
 
     constexpr const uint8_t* config_descriptor_callback(uint8_t speed) { return config_descriptor; }
 
@@ -100,10 +102,12 @@ namespace {
         return string_descriptors[index];
     }
 
-    constexpr usb_descriptor cdc_descriptor = {.device_descriptor_callback = device_descriptor_callback,
-                                               .config_descriptor_callback = config_descriptor_callback,
-                                               .device_quality_descriptor_callback = device_quality_descriptor_callback,
-                                               .string_descriptor_callback = string_descriptor_callback};
+    constexpr usb_descriptor cdc_descriptor = {
+        .device_descriptor_callback = device_descriptor_callback,
+        .config_descriptor_callback = config_descriptor_callback,
+        .device_quality_descriptor_callback = device_quality_descriptor_callback,
+        .string_descriptor_callback = string_descriptor_callback
+    };
 } // namespace
 
 UsbAcmDevice& UsbAcmDevice::GetInstance() {
