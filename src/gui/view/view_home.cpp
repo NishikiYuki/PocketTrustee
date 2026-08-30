@@ -1,4 +1,5 @@
 #include "view_home.hpp"
+#include "view_more.hpp"
 #include "view_password.hpp"
 
 using namespace guiv2::View::Home;
@@ -16,6 +17,12 @@ HomeWindow::HomeWindow(Gui& host, PocketTrustee::App& app) :
     clickArea_Token.Rect = AreaToken;
     clickArea_Card.Rect = AreaCard;
     clickArea_More.Rect = AreaMore;
+    clickArea_More.OnClick = [this] {
+        Close();
+        gui_.OpenWindowDeferred([gui = &gui_, app = &app_] {
+            return std::make_unique<More::MoreWindow>(*gui, *app);
+        });
+    };
     clickArea_Status.Rect = AreaStatus;
     SetControls(control_array_);
 }

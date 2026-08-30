@@ -32,7 +32,7 @@ void StartDefaultTask(void const*) {
     // construct app
     auto& app = PocketTrustee::App::InitOrGetApp();
     app_ = &app;
-    // ShellSocket::GetInstance().Start();
+    ShellSocket::GetInstance().Start();
     app.Gui.OpenWindow(std::make_unique<guiv2::View::Home::HomeWindow>(app.Gui, app));
     app.Gui.Start(nullptr);
 }

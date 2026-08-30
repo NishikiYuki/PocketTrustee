@@ -116,7 +116,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   __attribute__((section("._user_heap2_region"))) static uint8_t _userHeapRegion1[ SRAM2_SIZE ];
-  static uint8_t _userHeapRegion2[ 0x6000 ];
+  static uint8_t _userHeapRegion2[ 0x5000 ];
   static const HeapRegion_t xHeapRegions[] =
   {
     {_userHeapRegion1, SRAM2_SIZE},
