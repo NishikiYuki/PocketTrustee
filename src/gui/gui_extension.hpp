@@ -131,7 +131,7 @@ namespace guiv2::extension {
         }
     };
 
-    class InfoWindow final : public Window {
+    class InfoWindow : public Window {
     public:
         InfoWindow(Gui& host, const WindowRect& rect, std::string_view title, std::string_view text,
                    std::move_only_function<void()> callback) :
