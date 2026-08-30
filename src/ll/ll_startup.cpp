@@ -16,6 +16,14 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName);
 void vApplicationMallocFailedHook(void);
 }
 
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
+    DEBUG_ERROR("%s Stack Overflow!", pcTaskName);
+}
+
+void vApplicationMallocFailedHook() {
+    DEBUG_ERROR("Malloc Failed!");
+}
+
 void HAL_Delay(uint32_t Delay) { vTaskDelay(Delay); }
 
 void StartDefaultTask(void const*) {

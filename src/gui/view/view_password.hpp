@@ -3,6 +3,7 @@
 
 #include "guiv2.hpp"
 #include "app_ptt.hpp"
+#include "app_password.hpp"
 #include "gui_extension.hpp"
 
 namespace guiv2::View::Password {
@@ -27,7 +28,40 @@ namespace guiv2::View::Password {
         PocketTrustee::App& app_;
 
         std::vector<std::string> items_;
+        std::vector<uint32_t> entity_ids_;
         ScrollMenuWindow scroll_wn_;
+    };
+
+    class PasswordViewerWindow final : public Window {
+    public:
+        PasswordViewerWindow(Gui& host, PocketTrustee::App& app, uint32_t entity_id, PasswordRecord record);
+        ~PasswordViewerWindow() override;
+
+        // Used to notify the parent to refresh its database index after closing.
+        std::move_only_function<void()> OnClose;
+
+    private:
+        static std::string TruncateText(std::string_view text, size_t max_glyphs);
+        static std::string MaskText(std::string_view text, size_t max_glyphs);
+
+    protected:
+        void OnCreate() override;
+        void OnRender(Scheme& scheme) override;
+
+        void DeleteRecord();
+
+        PocketTrustee::App& app_;
+        uint32_t entity_id_;
+        PasswordRecord record_;
+        std::string title_;
+
+        ClickArea account_area_;
+        ClickArea password_area_;
+        Button button_back_;
+        Button button_delete_;
+        pointer<Control> control_array_[4]{
+            &account_area_, &password_area_, &button_back_, &button_delete_
+        };
     };
 
     class PasswordGenWindow final : public Window {

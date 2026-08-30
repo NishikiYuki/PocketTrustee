@@ -57,7 +57,7 @@ namespace PocketTrustee {
         Error Modify(uint32_t entity_id, std::string_view name, const std::span<const uint8_t>& data);
 
         // Read entry name and data; name is fully read into the string
-        Error ReadData(uint32_t entity_id, const std::span<uint8_t>& data);
+        Error ReadData(uint32_t entity_id, const std::span<uint8_t>& data, size_t& actual_size);
 
         Error ReadName(uint32_t entity_id, std::string& name);
 

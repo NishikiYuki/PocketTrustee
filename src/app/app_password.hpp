@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <span>
+#include <optional>
 
 class PasswordRecord {
 public:
@@ -17,6 +18,8 @@ public:
     static PasswordRecord Generate(const GenerateConfig& config);
 
     bool Serialize(const std::span<uint8_t>& buffer, size_t& size) const;
+
+    static std::optional<PasswordRecord> TryDeserialize(const std::span<uint8_t>& buffer);
 
     std::string Name;
     std::string Account;

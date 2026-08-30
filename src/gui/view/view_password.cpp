@@ -3,6 +3,7 @@
 #include "app_password.hpp"
 #include "usb_imp_hid.hpp"
 #include <algorithm>
+#include <array>
 
 using namespace guiv2::View::Password;
 
@@ -31,12 +32,43 @@ void PasswordWindow::ClickCallback(int n) {
         wn->OnClose = [this] { SyncWithDatabase(); };
         gui_.OpenWindow(std::move(wn));
     }
+    else if (n >= 2 && static_cast<size_t>(n) < entity_ids_.size()) {
+        auto guard = app_.GetPasswordVaultUnlocked();
+        if (!guard.has_value()) {
+            gui_.OpenWindow(std::make_unique<InfoWindow>(
+                gui_, WindowRect{{84, 16}, 128, 96}, "Vault unlock failed!", nullptr));
+            return;
+        }
+
+        std::array<uint8_t, 128> data{};
+        size_t actual_size = 0;
+        const auto err = app_.PasswordVault.ReadData(entity_ids_[n], data, actual_size);
+        if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
+            gui_.OpenWindow(std::make_unique<InfoWindow>(
+                gui_, WindowRect{{84, 16}, 128, 96}, "Password read failed!", nullptr));
+            return;
+        }
+
+        auto record = PasswordRecord::TryDeserialize({data.data(), actual_size});
+        if (!record.has_value()) {
+            gui_.OpenWindow(std::make_unique<InfoWindow>(
+                gui_, WindowRect{{84, 16}, 128, 96}, "Password data corrupt!", nullptr));
+            return;
+        }
+
+        auto wn = std::make_unique<PasswordViewerWindow>(gui_, app_, entity_ids_[n], std::move(*record));
+        wn->OnClose = [this] { SyncWithDatabase(); };
+        gui_.OpenWindow(std::move(wn));
+    }
 }
 
 void PasswordWindow::SyncWithDatabase() {
     items_.clear();
+    entity_ids_.clear();
     items_.emplace_back("< Back");
+    entity_ids_.emplace_back(0);
     items_.emplace_back("+ New");
+    entity_ids_.emplace_back(0);
     auto err = app_.PasswordVault.BuildIndex();
     auto index = app_.PasswordVault.GetEntityIndex();
     if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
@@ -50,6 +82,7 @@ void PasswordWindow::SyncWithDatabase() {
         }
         if (!name.empty()) {
             items_.push_back(name);
+            entity_ids_.push_back(item.entity_id);
         }
     }
     scroll_wn_.SetItems(items_);
@@ -66,6 +99,131 @@ fail:
                 });
             });
     });
+}
+
+std::string PasswordViewerWindow::TruncateText(std::string_view text, size_t max_glyphs) {
+    size_t glyphs = 0;
+    for (size_t index = 0; index < text.size();) {
+        guiv2::DecodeUTF8(text, index);
+        ++glyphs;
+    }
+    if (glyphs <= max_glyphs)
+        return std::string{text};
+
+    constexpr std::string_view ellipsis = "...";
+    if (max_glyphs <= ellipsis.size())
+        return std::string{ellipsis.substr(0, max_glyphs)};
+
+    const auto content_glyphs = max_glyphs - ellipsis.size();
+    size_t index = 0;
+    size_t end = 0;
+    for (size_t rendered = 0; rendered < content_glyphs && index < text.size(); ++rendered) {
+        guiv2::DecodeUTF8(text, index);
+        end = index;
+    }
+    std::string result{text.substr(0, end)};
+    result += ellipsis;
+    return result;
+}
+
+std::string PasswordViewerWindow::MaskText(std::string_view text, size_t max_glyphs) {
+    size_t glyphs = 0;
+    for (size_t index = 0; index < text.size();) {
+        guiv2::DecodeUTF8(text, index);
+        ++glyphs;
+    }
+    if (glyphs == 0)
+        return "(None)";
+    return std::string(std::min(glyphs, max_glyphs), '*');
+}
+
+PasswordViewerWindow::PasswordViewerWindow(Gui& host, PocketTrustee::App& app, uint32_t entity_id,
+                                           PasswordRecord record) :
+    Window(host, {{63, 16}, 170, 96}), app_(app), entity_id_(entity_id), record_(std::move(record)),
+    title_(PasswordViewerWindow::TruncateText(record_.Name, 20)) {
+    account_area_.Rect = {{1, 22}, 168, 16};
+    account_area_.Border = 0;
+    account_area_.BorderOnFocus = 0;
+    account_area_.OnClick = [this] { UsbHidDevice::GetInstance().TypeString(record_.Account); };
+
+    password_area_.Rect = {{1, 42}, 168, 16};
+    password_area_.Border = 0;
+    password_area_.BorderOnFocus = 0;
+    password_area_.OnClick = [this] { UsbHidDevice::GetInstance().TypeString(record_.Password); };
+
+    button_back_.Rect = {{34, 76}, 42, 16};
+    button_back_.Text = "Back";
+    button_back_.OnClick = [this] { Close(); };
+
+    button_delete_.Rect = {{89, 76}, 52, 16};
+    button_delete_.Text = "Delete";
+    button_delete_.OnClick = [this] {
+        auto dialog = std::make_unique<OptionWindow>(
+            gui_, WindowRect{{30, 32}, 236, 64}, "Delete", "Delete this password?", "No", "Yes",
+            [this](int option) {
+                if (option == 2)
+                    DeleteRecord();
+            });
+        gui_.OpenWindow(std::move(dialog));
+    };
+
+    SetControls(control_array_);
+}
+
+void PasswordViewerWindow::OnCreate() {
+    app_.PopUsbDevice();
+    app_.RegisterUsbDevice(&UsbHidDevice::GetInstance());
+}
+
+PasswordViewerWindow::~PasswordViewerWindow() {
+    app_.PopUsbDevice();
+    if (OnClose)
+        OnClose();
+}
+
+void PasswordViewerWindow::OnRender(Scheme& scheme) {
+    scheme.Clear();
+    Window::OnRender(scheme);
+    scheme.Border();
+    scheme.Line({0, 18}, {rect_.width - 1, 18}, 0);
+    scheme.Text(title_, base_font::Ascii1608::Get(), {2, 1});
+
+    constexpr size_t kMaxGlyphs = 20;
+    const bool account_focused = FocusedControl() == &account_area_;
+    const bool password_focused = FocusedControl() == &password_area_;
+    const auto account_text = account_focused && !record_.Account.empty()
+                                  ? TruncateText(record_.Account, kMaxGlyphs)
+                                  : MaskText(record_.Account, kMaxGlyphs);
+    const auto password_text = password_focused && !record_.Password.empty()
+                                   ? TruncateText(record_.Password, kMaxGlyphs)
+                                   : MaskText(record_.Password, kMaxGlyphs);
+    scheme.Text(account_text, base_font::Ascii1608::Get(), account_area_.Rect.origin);
+    scheme.Text(password_text, base_font::Ascii1608::Get(), password_area_.Rect.origin);
+    if (account_focused)
+        scheme.Invert(account_area_.Rect.origin,
+                      account_area_.Rect.origin + Point2u{account_area_.Rect.width, account_area_.Rect.height});
+    if (password_focused)
+        scheme.Invert(password_area_.Rect.origin,
+                      password_area_.Rect.origin + Point2u{password_area_.Rect.width, password_area_.Rect.height});
+}
+
+void PasswordViewerWindow::DeleteRecord() {
+    auto guard = app_.GetPasswordVaultUnlocked();
+    if (!guard.has_value()) {
+        Close();
+        gui_.OpenWindowDeferred([gui = &gui_] {
+            return std::make_unique<InfoWindow>(*gui, WindowRect{{84, 16}, 128, 96}, "Vault unlock failed!", nullptr);
+        });
+        return;
+    }
+
+    const auto err = app_.PasswordVault.Remove(entity_id_);
+    Close();
+    if (err != PocketTrustee::VaultDatabaseV1::Error::Ok) {
+        gui_.OpenWindowDeferred([gui = &gui_] {
+            return std::make_unique<InfoWindow>(*gui, WindowRect{{84, 16}, 128, 96}, "Delete failed!", nullptr);
+        });
+    }
 }
 
 PasswordGenWindow::PasswordGenWindow(Gui& host, PocketTrustee::App& app) :

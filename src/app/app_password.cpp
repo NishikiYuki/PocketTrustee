@@ -1,6 +1,7 @@
 #include "app_password.hpp"
 #include <vector>
 #include "psa/crypto.h"
+#include "zcbor_decode.h"
 #include "zcbor_encode.h"
 
 PasswordRecord PasswordRecord::Generate(const GenerateConfig& config) {
@@ -34,4 +35,27 @@ bool PasswordRecord::Serialize(const std::span<uint8_t>& buffer, size_t& size) c
     success = success && zcbor_list_end_encode(state, 3);
     size = state->payload - buffer.data();
     return success;
+}
+
+std::optional<PasswordRecord> PasswordRecord::TryDeserialize(const std::span<uint8_t>& buffer) {
+    if (buffer.empty()) {
+        return std::nullopt;
+    }
+
+    ZCBOR_STATE_D(state, 1, buffer.data(), buffer.size(), 1, 0);
+    zcbor_string name{};
+    zcbor_string account{};
+    zcbor_string password{};
+
+    if (!zcbor_list_start_decode(state) || !zcbor_tstr_decode(state, &name) ||
+        !zcbor_tstr_decode(state, &account) || !zcbor_tstr_decode(state, &password) ||
+        !zcbor_list_end_decode(state) || state->payload != state->payload_end) {
+        return std::nullopt;
+    }
+
+    PasswordRecord record;
+    record.Name.assign(reinterpret_cast<const char*>(name.value), name.len);
+    record.Account.assign(reinterpret_cast<const char*>(account.value), account.len);
+    record.Password.assign(reinterpret_cast<const char*>(password.value), password.len);
+    return record;
 }

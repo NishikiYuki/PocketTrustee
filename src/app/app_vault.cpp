@@ -555,7 +555,8 @@ VaultDatabaseV1::Error VaultDatabaseV1::Modify(uint32_t entity_id, std::string_v
     return Error::Ok;
 }
 
-VaultDatabaseV1::Error VaultDatabaseV1::ReadData(uint32_t entity_id, const std::span<uint8_t>& data) {
+VaultDatabaseV1::Error VaultDatabaseV1::ReadData(uint32_t entity_id, const std::span<uint8_t>& data,
+                                                 size_t& actual_size) {
     if (!unlocked_) {
         return Error::NotUnlocked;
     }
@@ -580,6 +581,7 @@ VaultDatabaseV1::Error VaultDatabaseV1::ReadData(uint32_t entity_id, const std::
     if (bytes != sizeof(rec_header) || rec_header.magic != kRecordHeaderMagic || rec_header.entity_id != entity_id) {
         return Error::Corrupt;
     }
+    actual_size = rec_header.data_size;
     err = lfs_file_seek(fs_, &file.f, rec_header.name_size, LFS_SEEK_CUR);
     if (err < 0) {
         return LfsErrorToError(err);
