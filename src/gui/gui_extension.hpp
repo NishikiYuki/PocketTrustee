@@ -7,6 +7,10 @@
 #include "guiv2.hpp"
 
 namespace guiv2::extension {
+    size_t CountGlyphs(std::string_view text);
+    std::string TruncateText(std::string_view text, size_t max_glyphs);
+    std::string MaskText(std::string_view text, size_t max_glyphs);
+
     class FontFamily {
     public:
         static FontFamily& LoadOrGetFontFamily();
@@ -179,7 +183,6 @@ namespace guiv2::extension {
         static constexpr size_t kMinimumScrollbarThumbHeight = 8;
         static constexpr size_t kAsciiGlyphWidth = 8;
 
-        static size_t CountGlyphs(std::string_view text);
         static void RenderTextSingleLine(Scheme& scheme, std::string_view text, Point2u origin, size_t available_width);
         void MoveSelection(int direction);
         void EnsureSelectionVisible(size_t visible_item_count);

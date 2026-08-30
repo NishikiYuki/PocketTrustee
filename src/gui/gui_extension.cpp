@@ -117,7 +117,9 @@ void InfoWindow::OnRender(Scheme& scheme) {
     scheme.Text(Text, base_font::Ascii1608::Get(), {2, 1});
 }
 
-size_t ScrollMenuWindow::CountGlyphs(std::string_view text) {
+namespace guiv2::extension {
+
+size_t CountGlyphs(std::string_view text) {
     size_t count = 0;
     for (size_t index = 0; index < text.size();) {
         DecodeUTF8(text, index);
@@ -126,13 +128,42 @@ size_t ScrollMenuWindow::CountGlyphs(std::string_view text) {
     return count;
 }
 
+std::string TruncateText(std::string_view text, size_t max_glyphs) {
+    if (CountGlyphs(text) <= max_glyphs)
+        return std::string{text};
+
+    constexpr std::string_view ellipsis = "...";
+    if (max_glyphs <= ellipsis.size())
+        return std::string{ellipsis.substr(0, max_glyphs)};
+
+    const auto content_glyphs = max_glyphs - ellipsis.size();
+    size_t index = 0;
+    size_t end = 0;
+    for (size_t rendered = 0; rendered < content_glyphs && index < text.size(); ++rendered) {
+        DecodeUTF8(text, index);
+        end = index;
+    }
+    std::string result{text.substr(0, end)};
+    result += ellipsis;
+    return result;
+}
+
+std::string MaskText(std::string_view text, size_t max_glyphs) {
+    const auto glyphs = CountGlyphs(text);
+    if (glyphs == 0)
+        return "(None)";
+    return std::string(std::min(glyphs, max_glyphs), '*');
+}
+
+} // namespace guiv2::extension
+
 void ScrollMenuWindow::RenderTextSingleLine(Scheme& scheme, std::string_view text, Point2u origin,
                                             size_t available_width) {
     const auto max_glyph_count = available_width / kAsciiGlyphWidth;
     if (max_glyph_count == 0)
         return;
 
-    const auto glyph_count = CountGlyphs(text);
+    const auto glyph_count = guiv2::extension::CountGlyphs(text);
     const bool truncated = glyph_count > max_glyph_count;
     const auto ellipsis_count = truncated ? std::min<size_t>(3, max_glyph_count) : 0;
     const auto text_glyph_limit = max_glyph_count - ellipsis_count;

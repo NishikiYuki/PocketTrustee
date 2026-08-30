@@ -101,61 +101,25 @@ fail:
     });
 }
 
-std::string PasswordViewerWindow::TruncateText(std::string_view text, size_t max_glyphs) {
-    size_t glyphs = 0;
-    for (size_t index = 0; index < text.size();) {
-        guiv2::DecodeUTF8(text, index);
-        ++glyphs;
-    }
-    if (glyphs <= max_glyphs)
-        return std::string{text};
-
-    constexpr std::string_view ellipsis = "...";
-    if (max_glyphs <= ellipsis.size())
-        return std::string{ellipsis.substr(0, max_glyphs)};
-
-    const auto content_glyphs = max_glyphs - ellipsis.size();
-    size_t index = 0;
-    size_t end = 0;
-    for (size_t rendered = 0; rendered < content_glyphs && index < text.size(); ++rendered) {
-        guiv2::DecodeUTF8(text, index);
-        end = index;
-    }
-    std::string result{text.substr(0, end)};
-    result += ellipsis;
-    return result;
-}
-
-std::string PasswordViewerWindow::MaskText(std::string_view text, size_t max_glyphs) {
-    size_t glyphs = 0;
-    for (size_t index = 0; index < text.size();) {
-        guiv2::DecodeUTF8(text, index);
-        ++glyphs;
-    }
-    if (glyphs == 0)
-        return "(None)";
-    return std::string(std::min(glyphs, max_glyphs), '*');
-}
-
 PasswordViewerWindow::PasswordViewerWindow(Gui& host, PocketTrustee::App& app, uint32_t entity_id,
                                            PasswordRecord record) :
-    Window(host, {{63, 16}, 170, 96}), app_(app), entity_id_(entity_id), record_(std::move(record)),
-    title_(PasswordViewerWindow::TruncateText(record_.Name, 20)) {
-    account_area_.Rect = {{1, 22}, 168, 16};
+    Window(host, {{38, 8}, 220, 112}), app_(app), entity_id_(entity_id), record_(std::move(record)),
+    title_(guiv2::extension::TruncateText(record_.Name, 27)) {
+    account_area_.Rect = {{1, 24}, 218, 18};
     account_area_.Border = 0;
     account_area_.BorderOnFocus = 0;
     account_area_.OnClick = [this] { UsbHidDevice::GetInstance().TypeString(record_.Account); };
 
-    password_area_.Rect = {{1, 42}, 168, 16};
+    password_area_.Rect = {{1, 48}, 218, 18};
     password_area_.Border = 0;
     password_area_.BorderOnFocus = 0;
     password_area_.OnClick = [this] { UsbHidDevice::GetInstance().TypeString(record_.Password); };
 
-    button_back_.Rect = {{34, 76}, 42, 16};
+    button_back_.Rect = {{56, 90}, 42, 16};
     button_back_.Text = "Back";
     button_back_.OnClick = [this] { Close(); };
 
-    button_delete_.Rect = {{89, 76}, 52, 16};
+    button_delete_.Rect = {{111, 90}, 52, 16};
     button_delete_.Text = "Delete";
     button_delete_.OnClick = [this] {
         auto dialog = std::make_unique<OptionWindow>(
@@ -188,15 +152,15 @@ void PasswordViewerWindow::OnRender(Scheme& scheme) {
     scheme.Line({0, 18}, {rect_.width - 1, 18}, 0);
     scheme.Text(title_, base_font::Ascii1608::Get(), {2, 1});
 
-    constexpr size_t kMaxGlyphs = 20;
+    constexpr size_t kMaxGlyphs = 27;
     const bool account_focused = FocusedControl() == &account_area_;
     const bool password_focused = FocusedControl() == &password_area_;
     const auto account_text = account_focused && !record_.Account.empty()
-                                  ? TruncateText(record_.Account, kMaxGlyphs)
-                                  : MaskText(record_.Account, kMaxGlyphs);
+                                  ? guiv2::extension::TruncateText(record_.Account, kMaxGlyphs)
+                                  : guiv2::extension::MaskText(record_.Account, kMaxGlyphs);
     const auto password_text = password_focused && !record_.Password.empty()
-                                   ? TruncateText(record_.Password, kMaxGlyphs)
-                                   : MaskText(record_.Password, kMaxGlyphs);
+                                   ? guiv2::extension::TruncateText(record_.Password, kMaxGlyphs)
+                                   : guiv2::extension::MaskText(record_.Password, kMaxGlyphs);
     scheme.Text(account_text, base_font::Ascii1608::Get(), account_area_.Rect.origin);
     scheme.Text(password_text, base_font::Ascii1608::Get(), password_area_.Rect.origin);
     if (account_focused)

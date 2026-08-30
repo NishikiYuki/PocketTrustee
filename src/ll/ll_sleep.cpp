@@ -43,6 +43,7 @@ void CoreClock::SetSleepMode(CoreSleep mode) {
     }
     else if (mode == CoreSleep::AllowStop2 && IdealTaskHandle) {
         vTaskDelete(IdealTaskHandle);
+        IdealTaskHandle = nullptr;
     }
 }
 

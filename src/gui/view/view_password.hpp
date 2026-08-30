@@ -40,10 +40,6 @@ namespace guiv2::View::Password {
         // Used to notify the parent to refresh its database index after closing.
         std::move_only_function<void()> OnClose;
 
-    private:
-        static std::string TruncateText(std::string_view text, size_t max_glyphs);
-        static std::string MaskText(std::string_view text, size_t max_glyphs);
-
     protected:
         void OnCreate() override;
         void OnRender(Scheme& scheme) override;
