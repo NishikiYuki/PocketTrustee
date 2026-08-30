@@ -1,4 +1,6 @@
 #include "view_more.hpp"
+
+#include "app_shell.hpp"
 #include "view_home.hpp"
 
 using namespace guiv2::View::More;
@@ -14,6 +16,16 @@ MoreWindow::MoreWindow(Gui& gui, PocketTrustee::App& app) :
     };
     clickArea_Transparent.Rect = kAreaTransparent;
     clickArea_Manage.Rect = kAreaManage;
+    clickArea_Manage.OnClick = [this] {
+        ShellSocket::GetInstance().Start();
+        auto wn = std::make_unique<InfoWindow>(
+            gui_, WindowRect{{84, 16}, 128, 96}, "Manage", "On Manage Mode",
+            [] {
+                ShellSocket::GetInstance().Stop();
+            });
+        wn->ButtonContent = "Disconnect";
+        gui_.OpenWindow(std::move(wn));
+    };
     SetControls(control_array_);
 }
 

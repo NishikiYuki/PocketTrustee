@@ -133,10 +133,10 @@ namespace guiv2::extension {
 
     class InfoWindow final : public Window {
     public:
-        InfoWindow(Gui& host, const WindowRect& rect, std::string_view text,
+        InfoWindow(Gui& host, const WindowRect& rect, std::string_view title, std::string_view text,
                    std::move_only_function<void()> callback) :
-            Window(host, rect), Text(text), Callback(std::move(callback)),
-            button({}, "Ok", [this] { CallbackForward(); }) {
+            Window(host, rect), Title(title), Text(text), Callback(std::move(callback)),
+            button({}, {}, [this] { CallbackForward(); }) {
             constexpr size_t kButtonWidth = 20;
             constexpr size_t kButtonHeight = 12;
             const auto button_x = rect_.width > kButtonWidth ? (rect_.width - kButtonWidth) / 2 : 0;
@@ -145,7 +145,13 @@ namespace guiv2::extension {
             SetControls(control_array);
         }
 
+        InfoWindow(Gui& host, const WindowRect& rect, std::string_view text,
+                   std::move_only_function<void()> callback) :
+            InfoWindow(host, rect, {}, text, std::move(callback)) {}
+
+        std::string_view Title;
         std::string_view Text;
+        std::string_view ButtonContent = "Ok";
         std::move_only_function<void()> Callback;
 
     protected:

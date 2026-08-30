@@ -112,9 +112,25 @@ void OptionWindow::OnRender(Scheme& scheme) {
 
 void InfoWindow::OnRender(Scheme& scheme) {
     scheme.Clear();
+    button.Text = ButtonContent;
+
+    constexpr size_t kMinimumButtonWidth = 20;
+    constexpr size_t kButtonHeight = 12;
+    const auto content_width = ButtonContent.size() * 8 + 4;
+    const auto button_width = std::min(rect_.width, std::max(kMinimumButtonWidth, content_width));
+    const auto button_x = rect_.width > button_width ? (rect_.width - button_width) / 2 : 0;
+    button.Rect = {{button_x, button.Rect.origin.y}, button_width, kButtonHeight};
+
     Window::OnRender(scheme);
     scheme.Border();
-    scheme.Text(Text, base_font::Ascii1608::Get(), {2, 1});
+    if (Title.empty()) {
+        scheme.Text(Text, base_font::Ascii1608::Get(), {2, 1});
+    }
+    else {
+        scheme.Line({0, 18}, {rect_.width - 1, 18}, 0);
+        scheme.Text(Title, base_font::Ascii1608::Get(), {2, 1});
+        scheme.Text(Text, base_font::Ascii1608::Get(), {2, 19});
+    }
 }
 
 namespace guiv2::extension {

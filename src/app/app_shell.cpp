@@ -76,6 +76,9 @@ ShellSocket& ShellSocket::GetInstance() {
 }
 
 void ShellSocket::Start() {
+    if (shell_task_handle) {
+        return;
+    }
     App.RegisterUsbDevice(&UsbAcmDevice::GetInstance());
     shell_task_handle =
         xTaskCreateStatic(ShellMainThread, "shell", kShellStackSize, nullptr, 4, shell_stack, &shell_task_tcb);
@@ -84,7 +87,11 @@ void ShellSocket::Start() {
 }
 
 void ShellSocket::Stop() {
+    if (!shell_task_handle) {
+        return;
+    }
     vTaskDelete(shell_task_handle);
+    shell_task_handle = nullptr;
     App.PopUsbDevice();
     DEBUG_INFO("Shell stop");
 }
