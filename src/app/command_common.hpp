@@ -10,7 +10,7 @@ class ICommand {
 public:
     struct Request {
         zcbor_state_t* state;
-        ShellSocket& shell;
+        PocketTrustee::ShellSocket& shell;
     };
 
     virtual ~ICommand() = default;

@@ -2,6 +2,8 @@
 #include "app_ptt_utility.hpp"
 #include <cstring>
 
+using namespace PocketTrustee;
+
 namespace {
     constexpr size_t kMaxPathLength = LFS_NAME_MAX;
     constexpr size_t kChunkSize = 128;
@@ -95,7 +97,7 @@ void CommandLs::Invoke(Request& req) {
         return;
     }
 
-    PocketTrustee::LfsDirectoryGuard directory{&req.shell.App.Lfs};
+    PocketTrustee::LfsDirectoryGuard directory{&req.shell.HostApp.Lfs};
     int error = directory.open(path);
     if (error != LFS_ERR_OK) {
         SendFilesystemError(req.shell, error);
@@ -139,7 +141,7 @@ void CommandMkdir::Invoke(Request& req) {
         SendFilesystemError(req.shell, LFS_ERR_INVAL);
         return;
     }
-    const int error = lfs_mkdir(&req.shell.App.Lfs, path);
+    const int error = lfs_mkdir(&req.shell.HostApp.Lfs, path);
     if (error == LFS_ERR_OK) {
         (void)SendSuccess(req.shell);
     }
@@ -154,7 +156,7 @@ void CommandRm::Invoke(Request& req) {
         SendFilesystemError(req.shell, LFS_ERR_INVAL);
         return;
     }
-    const int error = lfs_remove(&req.shell.App.Lfs, path);
+    const int error = lfs_remove(&req.shell.HostApp.Lfs, path);
     if (error == LFS_ERR_OK) {
         (void)SendSuccess(req.shell);
     }
@@ -170,7 +172,7 @@ void CommandMv::Invoke(Request& req) {
         SendFilesystemError(req.shell, LFS_ERR_INVAL);
         return;
     }
-    const int error = lfs_rename(&req.shell.App.Lfs, origin, destination);
+    const int error = lfs_rename(&req.shell.HostApp.Lfs, origin, destination);
     if (error == LFS_ERR_OK) {
         (void)SendSuccess(req.shell);
     }
@@ -186,7 +188,7 @@ void CommandWrite::Invoke(Request& req) {
         return;
     }
 
-    PocketTrustee::LfsFileGuard file{&req.shell.App.Lfs};
+    PocketTrustee::LfsFileGuard file{&req.shell.HostApp.Lfs};
     int error = file.open(path, LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC);
     if (error != LFS_ERR_OK) {
         SendFilesystemError(req.shell, error);
@@ -233,7 +235,7 @@ void CommandRead::Invoke(Request& req) {
         return;
     }
 
-    PocketTrustee::LfsFileGuard file{&req.shell.App.Lfs};
+    PocketTrustee::LfsFileGuard file{&req.shell.HostApp.Lfs};
     int error = file.open(path, LFS_O_RDONLY);
     if (error != LFS_ERR_OK) {
         SendFilesystemError(req.shell, error);
@@ -274,12 +276,12 @@ void CommandFormat::Invoke(Request& req) {
         return;
     }
 
-    int error = lfs_unmount(&req.shell.App.Lfs);
+    int error = lfs_unmount(&req.shell.HostApp.Lfs);
     if (error == LFS_ERR_OK) {
-        error = lfs_format(&req.shell.App.Lfs, req.shell.App.Disk);
+        error = lfs_format(&req.shell.HostApp.Lfs, req.shell.HostApp.Disk);
     }
     if (error == LFS_ERR_OK) {
-        error = lfs_mount(&req.shell.App.Lfs, req.shell.App.Disk);
+        error = lfs_mount(&req.shell.HostApp.Lfs, req.shell.HostApp.Disk);
     }
 
     if (error == LFS_ERR_OK) {
