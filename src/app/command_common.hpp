@@ -24,6 +24,12 @@ public:
     void Invoke(Request& req) override;
 };
 
+class CommandChallenge final : public ICommand {
+public:
+    std::string_view Name() const noexcept override { return "challenge"; }
+    void Invoke(Request& req) override;
+};
+
 class CommandLs final : public ICommand {
 public:
     std::string_view Name() const noexcept override { return "ls"; }

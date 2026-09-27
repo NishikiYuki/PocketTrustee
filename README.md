@@ -22,24 +22,7 @@ ZW0919指纹模块的支持已被彻底移除，今后没有支持计划，拆�
 `ninja`  
 在build/Release目录下，PocketTrustee.elf 即编译产物
 3. 使用 [STM32 CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html) 工具将PocketTrustee.elf 烧录到芯片上   
-4. 连接设备和电脑，应当能在设备管理器里看到新的串口设备   
-5. 安装 LittleFS Shell CLI 的依赖：`python -m pip install -r tools/requirements-lfs-cli.txt`
-6. 使用 `python tools/lfs_cli.py --port /dev/ttyACM0 ls` 访问文件系统；Windows 下将端口替换为例如 `COM3`。
-
-## LittleFS Shell CLI
-
-`tools/lfs_cli.py` 通过 USB ACM 管理设备上的 LittleFS。支持目录浏览、创建、非递归删除、移动、上传和下载；上传下载会自动按 128 字节分块传输。
-
-```sh
-python tools/lfs_cli.py --port /dev/ttyACM0 mkdir /logs
-python tools/lfs_cli.py --port /dev/ttyACM0 write local.bin /logs/data.bin
-python tools/lfs_cli.py --port /dev/ttyACM0 ls /logs
-python tools/lfs_cli.py --port /dev/ttyACM0 read /logs/data.bin downloaded.bin
-python tools/lfs_cli.py --port /dev/ttyACM0 mv /logs/data.bin /logs/archive.bin
-python tools/lfs_cli.py --port /dev/ttyACM0 rm /logs/archive.bin
-```
-
-使用 `python tools/lfs_cli.py --help` 查看全部参数与子命令。`rm` 遵循 LittleFS 的非递归语义，非空目录会被设备拒绝。
+4. 连接设备和电脑，应当能在设备管理器里看到新的串口设备
 
 ## PocketTrustee Control
 PocketTrustee Control是一组统一的工具合集,为未来所有的PocketTrustee型号提供管理支持

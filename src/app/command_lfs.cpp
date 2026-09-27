@@ -97,7 +97,7 @@ void CommandLs::Invoke(Request& req) {
         return;
     }
 
-    PocketTrustee::LfsDirectoryGuard directory{&req.shell.HostApp.Lfs};
+    LfsDirectoryGuard directory{&req.shell.HostApp.Lfs};
     int error = directory.open(path);
     if (error != LFS_ERR_OK) {
         SendFilesystemError(req.shell, error);

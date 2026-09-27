@@ -50,7 +50,7 @@ namespace {
     };
 
     std::span<ICommand* const> GetPrivilegedCommands(PrivilegeLevel level) {
-        return std::span<ICommand* const>{CommandList}.first(static_cast<size_t>(level));
+        return std::span<ICommand* const>{CommandList}.first(static_cast<size_t>(level) + 1);
     }
 
     void ShellMessageHandler(uint16_t) {
